@@ -19,7 +19,9 @@ module%test [@name "[Capsule.Isolated]"] _ = struct
     in
     (* Even though [get] is [portable], it can still read the contents of [data] since it
      has [shared] access to it. *)
-    let get () = Capsule.Isolated.with_shared data ~f:(fun r -> r.contents) in
+    let (get @ portable) () =
+      Capsule.Isolated.with_shared data ~f:(fun r -> r.contents)
+    in
     print_s [%message (get () : int)];
     print_s [%message (do_stuff_result : string)];
     [%expect

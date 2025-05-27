@@ -1,3 +1,5 @@
+@@ portable
+
 (** Depending on the object, either creates a shallow clone of it or returns it as is.
     When cloned, the clone will have extra padding words added after the last used word.
 

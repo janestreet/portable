@@ -3,9 +3,9 @@ open! Portable
 
 (* Temporary portable redefinitions of functions from Base used by this module *)
 open struct
-  external ( = ) : int -> int -> bool = "%equal"
-  external ( < ) : int -> int -> bool = "%lessthan"
-  external ( - ) : int -> int -> int = "%subint"
+  external ( = ) : int -> int -> bool @@ portable = "%equal"
+  external ( < ) : int -> int -> bool @@ portable = "%lessthan"
+  external ( - ) : int -> int -> int @@ portable = "%subint"
 end
 
 type t =

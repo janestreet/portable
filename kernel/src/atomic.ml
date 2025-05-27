@@ -21,23 +21,37 @@ let make_alone =
     make
 ;;
 
-external get : ('a t[@local_opt]) -> 'a = "%atomic_load"
-external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
-external set : ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
+external get : ('a t[@local_opt]) -> 'a @ contended portable @@ portable = "%atomic_load"
+
+external exchange
+  :  ('a t[@local_opt])
+  -> 'a @ contended portable
+  -> 'a @ contended portable
+  @@ portable
+  = "%atomic_exchange"
+
+external set
+  :  ('a t[@local_opt])
+  -> 'a @ contended portable
+  -> unit
+  @@ portable
+  = "%atomic_set"
 
 external compare_and_set
   :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
+  -> if_phys_equal_to:'a @ contended portable
+  -> replace_with:'a @ contended portable
   -> Compare_failed_or_set_here.t
+  @@ portable
   = "%atomic_cas"
 
 external compare_exchange
   :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
-  -> 'a
-  = "caml_atomic_compare_exchange_stub"
+  -> if_phys_equal_to:'a @ contended portable
+  -> replace_with:'a @ contended portable
+  -> 'a @ contended portable
+  @@ portable
+  = "%atomic_compare_exchange"
 
 let[@inline] update_and_return t ~pure_f =
   let[@inline] rec aux backoff =
@@ -54,12 +68,18 @@ let[@inline] update (type a) (t : a t) ~pure_f =
   Basement.Stdlib_shim.ignore_contended (update_and_return t ~pure_f : a)
 ;;
 
-external fetch_and_add : (int t[@local_opt]) -> int -> int = "%atomic_fetch_add"
-external add : (int t[@local_opt]) -> int -> unit = "caml_atomic_add_stub"
-external sub : (int t[@local_opt]) -> int -> unit = "caml_atomic_sub_stub"
-external logand : (int t[@local_opt]) -> int -> unit = "caml_atomic_land_stub"
-external logor : (int t[@local_opt]) -> int -> unit = "caml_atomic_lor_stub"
-external logxor : (int t[@local_opt]) -> int -> unit = "caml_atomic_lxor_stub"
+external fetch_and_add
+  :  (int t[@local_opt])
+  -> int
+  -> int
+  @@ portable
+  = "%atomic_fetch_add"
+
+external add : (int t[@local_opt]) -> int -> unit @@ portable = "%atomic_add"
+external sub : (int t[@local_opt]) -> int -> unit @@ portable = "%atomic_sub"
+external logand : (int t[@local_opt]) -> int -> unit @@ portable = "%atomic_land"
+external logor : (int t[@local_opt]) -> int -> unit @@ portable = "%atomic_lor"
+external logxor : (int t[@local_opt]) -> int -> unit @@ portable = "%atomic_lxor"
 
 let incr r = add r 1
 let decr r = sub r 1
@@ -68,7 +88,11 @@ let t_of_sexp a_of_sexp sexp = make (a_of_sexp sexp)
 
 module Expert = struct
   (* This is subject to CSE. *)
-  external fenceless_get_cse : ('a t[@local_opt]) -> 'a = "%field0"
+  external fenceless_get_cse
+    :  ('a t[@local_opt])
+    -> 'a @ contended portable
+    @@ portable
+    = "%field0"
 
   let[@inline] fenceless_get t =
     (* We use [Sys.opaque_identity] to prevent CSE. *)

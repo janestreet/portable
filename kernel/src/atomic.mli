@@ -1,3 +1,5 @@
+@@ portable
+
 (** An atomic (mutable) reference to a value of type ['a].
 
     Atomic references mode cross both contention and portability, meaning they are always
@@ -33,13 +35,13 @@ module Compare_failed_or_set_here : sig
   [@@deriving sexp_of ~localize]
 end
 
-type !'a t = 'a Basement.Portable_atomic.t
+type !'a t : value mod contended portable = 'a Basement.Portable_atomic.t
 
-[%%rederive: type nonrec !'a t = 'a t [@@deriving sexp_of]]
-[%%rederive: type nonrec !'a t = 'a t [@@deriving of_sexp]]
+[%%rederive: type nonrec (!'a : value mod contended) t = 'a t [@@deriving sexp_of]]
+[%%rederive: type nonrec (!'a : value mod portable) t = 'a t [@@deriving of_sexp]]
 
 (** [make v] creates an atomic reference with initial value [v] *)
-val make : 'a -> 'a t
+val make : 'a @ contended portable -> 'a t
 
 (** [make_alone v] creates an atomic reference with initial value [v] which is alone on a
     cache line. It occupies 4-16x the memory of one allocated with [make v].
@@ -51,16 +53,25 @@ val make : 'a -> 'a t
     simultaneously becomes impossible, which can create a bottleneck. Hence, as a general
     guideline, if an atomic reference is experiencing contention, assigning it its own
     cache line may improve performance. *)
-val make_alone : 'a -> 'a t
+val make_alone : 'a @ contended portable -> 'a t
 
 (** [get r] gets the the current value of [r]. *)
-external get : ('a t[@local_opt]) -> 'a = "%atomic_load"
+external get : ('a t[@local_opt]) -> 'a @ contended portable = "%atomic_load"
 
 (** [set r v] sets the value of [r] to [v] *)
-external set : ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
+external set
+  :  ('a t[@local_opt])
+  -> 'a @ contended portable
+  -> unit
+  @@ portable
+  = "%atomic_set"
 
 (** [exchange r v] sets the value of [r] to [v], and returns the previous value *)
-external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
+external exchange
+  :  ('a t[@local_opt])
+  -> 'a @ contended portable
+  -> 'a @ contended portable
+  = "%atomic_exchange"
 
 (** [compare_and_set r ~if_phys_equal_to ~replace_with] sets the new value of [r] to
     [replace_with] {i only} if its current value is physically equal to [if_phys_equal_to]
@@ -70,8 +81,8 @@ external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
     reference was left unchanged. *)
 external compare_and_set
   :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
+  -> if_phys_equal_to:'a @ contended portable
+  -> replace_with:'a @ contended portable
   -> Compare_failed_or_set_here.t
   = "%atomic_cas"
 
@@ -81,44 +92,50 @@ external compare_and_set
     current (unchanged) value if the comparison failed. *)
 external compare_exchange
   :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
-  -> 'a
-  = "caml_atomic_compare_exchange_stub"
+  -> if_phys_equal_to:'a @ contended portable
+  -> replace_with:'a @ contended portable
+  -> 'a @ contended portable
+  = "%atomic_compare_exchange"
 
 (** [update t ~pure_f] atomically updates [t] to be the result of [pure_f (get t)].
     [pure_f] may be called multiple times, so should be free of side effects. *)
-val update : 'a t -> pure_f:('a -> 'a) -> unit
+val update
+  :  'a t @ local
+  -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
+  -> unit
 
 (** [update_and_return t ~pure_f] atomically updates [t] to be the result of
     [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
     effects. Returns the old value. *)
-val update_and_return : 'a t -> pure_f:('a -> 'a) -> 'a
+val update_and_return
+  :  'a t @ local
+  -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
+  -> 'a @ contended portable
 
 (** [fetch_and_add r n] atomically increments the value of [r] by [n], and returns the
     previous value (before the increment). *)
 external fetch_and_add : (int t[@local_opt]) -> int -> int = "%atomic_fetch_add"
 
 (** [add r i] atomically adds [i] to the value of [r]. *)
-external add : (int t[@local_opt]) -> int -> unit = "caml_atomic_add_stub"
+external add : (int t[@local_opt]) -> int -> unit = "%atomic_add"
 
 (** [sub r i] atomically subtracts [i] from the value of [r]. *)
-external sub : (int t[@local_opt]) -> int -> unit = "caml_atomic_sub_stub"
+external sub : (int t[@local_opt]) -> int -> unit = "%atomic_sub"
 
 (** [logand r i] atomically bitwise-ands [i] onto [r]. *)
-external logand : (int t[@local_opt]) -> int -> unit = "caml_atomic_land_stub"
+external logand : (int t[@local_opt]) -> int -> unit = "%atomic_land"
 
 (** [logor r i] atomically bitwise-ands [i] onto [r]. *)
-external logor : (int t[@local_opt]) -> int -> unit = "caml_atomic_lor_stub"
+external logor : (int t[@local_opt]) -> int -> unit = "%atomic_lor"
 
 (** [logxor r i] atomically bitwise-xors [i] onto [r]. *)
-external logxor : (int t[@local_opt]) -> int -> unit = "caml_atomic_lxor_stub"
+external logxor : (int t[@local_opt]) -> int -> unit = "%atomic_lxor"
 
 (** [incr r] atomically increments the value of [r] by [1]. *)
-val incr : int t -> unit
+val incr : int t @ local -> unit
 
 (** [decr r] atomically decrements the value of [r] by [1]. *)
-val decr : int t -> unit
+val decr : int t @ local -> unit
 
 module Expert : sig
   (** Load the value referenced by the given atomic, without using any compiler or
@@ -127,5 +144,5 @@ module Expert : sig
       This is dubiously safe, and has no explicit semantics within the OCaml memory
       model - and may do the wrong thing entirely on backends with weak memory models such
       as ARM. Use with caution! *)
-  val fenceless_get : 'a t -> 'a
+  val fenceless_get : 'a t @ local -> 'a @ contended portable
 end

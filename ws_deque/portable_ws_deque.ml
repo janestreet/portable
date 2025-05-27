@@ -143,12 +143,12 @@ let of_list xs =
   t
 ;;
 
-type ('a, _) poly =
+type ('a, _ : value_or_null) poly =
   | Option : ('a, 'a option) poly
   | Unboxed : ('a, 'a or_null) poly
   | Value : ('a, 'a) poly
 
-let pop_as : type a r. a t -> (a, r) poly -> r =
+let pop_as : type a (r : value_or_null). a t -> (a, r) poly -> r @ contended portable =
   fun q poly ->
   let b = Atomic.fetch_and_add q.bottom (-1) - 1 in
   (* Read of [top] at this point requires no fence as we simply need to ensure
@@ -204,9 +204,12 @@ let pop_exn q = pop_as q Value
 let pop q = pop_as q Unboxed
 let pop_opt q = pop_as q Option
 
-external magic_uncontended : 'a -> 'a = "%identity"
+external magic_uncontended : 'a @ contended -> 'a @@ portable = "%identity"
 
-let rec steal_as : type a r. a t -> Backoff.t -> (a, r) poly -> r =
+let rec steal_as
+  : type a (r : value_or_null).
+    a t @ contended -> Backoff.t -> (a, r) poly -> r @ contended portable
+  =
   fun q backoff poly ->
   (* Read of [top] does not require a fence at this point, but the read of
      [top] must happen before the read of [bottom].  The write of [top] later

@@ -3,11 +3,11 @@ include Capsule_intf.Definitions
 module Expert = Basement.Capsule
 
 module Password = struct
-  type 'k t = 'k Expert.Password.t
+  type 'k t : value mod contended portable = 'k Expert.Password.t
 end
 
 module Data = struct
-  type ('a, 'k) t = ('a, 'k) Expert.Data.t
+  type ('a, 'k) t : value mod contended portable = ('a, 'k) Expert.Data.t
 
   let create = Expert.Data.create
   let return = Expert.Data.inject
@@ -44,8 +44,8 @@ module Initial = struct
     [%%template
     [@@@mode.default local]
 
-    let wrap a = Expert.Data.Local.wrap ~access:Expert.initial a
-    let unwrap a = Expert.Data.Local.unwrap ~access:Expert.initial a]
+    let wrap a = exclave_ Expert.Data.Local.wrap ~access:Expert.initial a
+    let unwrap a = exclave_ Expert.Data.Local.unwrap ~access:Expert.initial a]
 
     let sexp_of_t sexp_of_a t = sexp_of_a (unwrap t)
     let t_of_sexp a_of_sexp a = wrap (a_of_sexp a)
@@ -53,9 +53,9 @@ module Initial = struct
 end
 
 module Mutex = struct
-  type 'k t = 'k Expert.Mutex.t
+  type 'k t : value mod contended portable = 'k Expert.Mutex.t
 
-  type packed = Expert.Mutex.packed = P : 'k t -> packed
+  type packed : value mod contended portable = Expert.Mutex.packed = P : 'k t -> packed
   [@@unboxed] [@@unsafe_allow_any_mode_crossing]
 
   let create () =
@@ -80,12 +80,12 @@ module Mutex = struct
 end
 
 module Isolated = struct
-  type ('a, 'k) inner =
-    { key : 'k Expert.Key.t
-    ; data : ('a, 'k) Data.t
+  type ('a, 'k) inner : value mod contended portable =
+    { key : 'k Expert.Key.t @@ global
+    ; data : ('a, 'k) Data.t @@ aliased
     }
 
-  type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+  type 'a t : value mod contended portable = P : ('a, 'k) inner -> 'a t [@@unboxed]
 
   let create f =
     let (P key) = Expert.create () in
@@ -120,7 +120,7 @@ module Isolated = struct
 
   let%template[@mode local] unwrap (P { key; data }) =
     let access = Expert.Key.destroy key in
-    Expert.Data.Local.unwrap ~access data
+    exclave_ Expert.Data.Local.unwrap ~access data
   ;;
 
   let get_id_contended (P { data; key }) =

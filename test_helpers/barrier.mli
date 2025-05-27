@@ -1,3 +1,5 @@
+@@ portable
+
 open! Base
 
 (** A barrier is a synchronisation tool.
@@ -53,7 +55,7 @@ open! Base
       ;;
     ]} *)
 
-type t
+type t : value mod contended portable
 
 (** [create c] returns a barrier of capacity [c]. *)
 val create : int -> t
