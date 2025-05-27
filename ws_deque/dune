@@ -1,0 +1,6 @@
+(library
+ (name portable_ws_deque)
+ (public_name portable.ws_deque)
+ (libraries backoff base portable_common portable_kernel uopt)
+ (preprocess
+  (pps ppx_jane)))

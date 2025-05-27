@@ -1,0 +1,6 @@
+(library
+ (name portable_kernel)
+ (public_name portable.kernel)
+ (libraries backoff base basement)
+ (preprocess
+  (pps ppx_jane)))

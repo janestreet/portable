@@ -1,0 +1,6 @@
+(library
+ (name portable_test_helpers)
+ (public_name portable.test_helpers)
+ (libraries base portable)
+ (preprocess
+  (pps ppx_jane)))
