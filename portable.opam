@@ -15,7 +15,7 @@ depends: [
   "basement"
   "ppx_jane"
   "uopt"
-  "backoff"
+  "backoff"  {= "0.1.1+jst"}
   "dune"     {>= "3.17.0"}
 ]
 available: arch != "arm32" & arch != "x86_32"

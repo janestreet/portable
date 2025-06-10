@@ -1,6 +1,6 @@
 (library
  (name portable_test)
  (libraries base expect_test_helpers_core.expect_test_helpers_base portable
-   portable_test_helpers re)
+   portable_test_helpers)
  (preprocess
   (pps ppx_jane)))

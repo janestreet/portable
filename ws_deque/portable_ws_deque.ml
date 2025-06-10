@@ -34,12 +34,28 @@ module Atomic = Portable_kernel.Atomic
 (** This must be a power of two. *)
 let min_capacity = 16
 
-type 'a t =
+type 'a t : mutable_data with 'a @@ contended portable =
   { top : int Atomic.t
   ; bottom : int Atomic.t
   ; top_cache : int ref
   ; mutable tab : 'a Portended.t Uopt.t ref array
   }
+[@@unsafe_allow_any_mode_crossing (* see below for safety *)]
+
+module _ = struct
+  [@@@disable_unused_warnings]
+
+  module Portended = struct
+    type 'a t = { portended : 'a @@ contended portable }
+  end
+
+  type 'a t : mutable_data with 'a @@ contended portable =
+    { top : int Atomic.t
+    ; bottom : int Atomic.t
+    ; top_cache : int ref
+    ; mutable tab : 'a Portended.t Uopt.t ref array
+    }
+end
 
 let create () =
   let top = Atomic.make_alone 0 in

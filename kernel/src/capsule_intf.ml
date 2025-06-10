@@ -2,7 +2,7 @@ open! Base
 module Capsule = Basement.Capsule
 
 module Definitions = struct
-  module type With_mutex = sig
+  module type Module_with_mutex = sig
     type k
 
     val mutex : k Capsule.Mutex.t
@@ -31,24 +31,27 @@ module type Capsule = sig @@ portable
 
     (** These functions are the most common way to interact with capsules. *)
 
-    val create : (unit -> 'a) @ local portable -> ('a, 'k) t
+    val create : (unit -> 'a) @ local once portable -> ('a, 'k) t
 
     (** Retrieve a value using the state stored in a capsule. *)
     val get
       : 'a 'k ('b : value mod contended portable).
-      ('a, 'k) t -> f:('a -> 'b) @ local portable -> password:'k Password.t @ local -> 'b
+      ('a, 'k) t
+      -> f:('a -> 'b) @ local once portable
+      -> password:'k Password.t @ local
+      -> 'b
 
     (** Like [get], for types that do not cross portability and contention. *)
     val get_contended
       :  ('a, 'k) t
-      -> f:('a -> 'b @ contended portable) @ local portable
+      -> f:('a -> 'b @ contended portable) @ local once portable
       -> password:'k Password.t @ local
       -> 'b @ contended portable
 
     (** A constrained form of [get] specialized to return [unit]. *)
     val iter
       :  ('a, 'k) t
-      -> f:('a -> unit) @ local portable
+      -> f:('a -> unit) @ local once portable
       -> password:'k Password.t @ local
       -> unit
 
@@ -61,13 +64,13 @@ module type Capsule = sig @@ portable
 
     val map
       :  ('a, 'k) t
-      -> f:('a -> 'b) @ local portable
+      -> f:('a -> 'b) @ local once portable
       -> password:'k Password.t @ local
       -> ('b, 'k) t
 
     val bind
       :  ('a, 'k1) t
-      -> f:('a -> ('b, 'k2) t) @ local portable
+      -> f:('a -> ('b, 'k2) t) @ local once portable
       -> password:'k1 Password.t @ local
       -> ('b, 'k2) t
 
@@ -80,22 +83,19 @@ module type Capsule = sig @@ portable
   end
 
   module Mutex : sig
-    type 'k t : value mod contended portable = 'k Capsule.Mutex.t
-
-    type packed : value mod contended portable = Capsule.Mutex.packed =
-      | P : 'k t -> packed
-    [@@unboxed] [@@unsafe_allow_any_mode_crossing]
+    type 'k t = 'k Capsule.Mutex.t
+    type packed = Capsule.Mutex.packed = P : 'k t -> packed [@@unboxed]
 
     (** Creates a mutex with a fresh existential key type. *)
     val create : unit -> packed
 
     (** Like [create]. Useful in module definitions, where GADTs cannot be unpacked. *)
-    module Create () : With_mutex
+    module Create () : Module_with_mutex
 
-    val with_lock : 'k t -> f:('k Password.t @ local -> 'a) @ local -> 'a
+    val with_lock : 'k t -> f:('k Password.t @ local -> 'a) @ local once -> 'a
   end
 
-  module Isolated : sig @@ portable
+  module Isolated : sig
     (** A value isolated within its own capsule.
 
         A primary use-case for this type is to use aliasing as a proxy for contention.
@@ -110,7 +110,7 @@ module type Capsule = sig @@ portable
 
     (** [create f] runs [f] within a fresh capsule, and creates a [Capsule.Isolated.t]
         containing the result. *)
-    val create : (unit -> 'a) @ local portable -> 'a t @ unique
+    val create : (unit -> 'a) @ local once portable -> 'a t @ unique
 
     (** [with_unique t ~f] takes a [unique] isolated capsule [t], calls [f] with its
         value, and returns a tuple of the unique isolated capsule and the result of [f]. *)
@@ -152,7 +152,56 @@ module type Capsule = sig @@ portable
       'a t @ unique -> 'a t * 'a Modes.Aliased.t @ contended unique
   end
 
-  module (Initial @ nonportable) : sig
+  module With_mutex : sig
+    type ('a, 'k) inner =
+      { data : ('a, 'k) Data.t
+      ; mutex : 'k Mutex.t
+      }
+
+    (** An ['a Capsule.With_mutex.t] is a value of type ['a] in its own capsule, protected
+        by a mutex *)
+    type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+
+    (** [create f] runs [f] within a fresh capsule, and creates a [Capsule.With_mutex.t]
+        containing the result *)
+    val create : (unit -> 'a) @ local once portable -> 'a t
+
+    (** [of_isolated isolated] creates a [Capsule.With_mutex.t] from a value in an
+        isolated capsule, consuming the isolated capsule. *)
+    val of_isolated : 'a Isolated.t @ unique -> 'a t
+
+    (** [get t ~f] locks the mutex associated with [t] and calls [f] on the protected
+        value, returning the result. The result type must be portable and cross
+        contention, as it is leaving the capsule associated with the mutex. *)
+    val get
+      : 'a ('b : value mod contended).
+      'a t -> f:('a -> 'b @ portable) @ local once portable -> 'b
+
+    module Guard : sig
+      type ('a, 'k) inner =
+        { password : 'k Password.t
+        ; data : ('a, 'k) Data.t @@ global
+        }
+
+      (** A value of this type represents a currently-locked [Capsule.With_mutex.t] *)
+      type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+    end
+
+    (** [with_lock t] locks the mutex associated with [t] and calls [f] with a [Guard.t]
+        providing access to the capsule. *)
+    val with_lock : 'a t -> f:('a Guard.t @ local -> 'b) @ local once -> 'b
+
+    (** [map t ~f] locks the mutex associated with [t] and calls [f] on the protected
+        value, returning a new [With_mutex.t] containing the result in the same capsule,
+        and protected by the same mutex. *)
+    val map : 'a t -> f:('a -> 'b) @ local once portable -> 'b t
+
+    (** [destroy t] poisons the mutex associated with [t], merging the protected value
+        into the current capsule and returning it. *)
+    val destroy : 'a t -> 'a
+  end
+
+  module (Initial @@ nonportable) : sig
     (** The initial capsule, i.e. the implicit capsule associated with the initial domain.
         This is the capsule in which library top-levels run, and so [nonportable]
         top-level functions are allowed to access it. *)

@@ -1,13 +1,6 @@
 open! Base
 open! Portable
 
-(* Temporary portable redefinitions of functions from Base used by this module *)
-open struct
-  external ( = ) : int -> int -> bool @@ portable = "%equal"
-  external ( < ) : int -> int -> bool @@ portable = "%lessthan"
-  external ( - ) : int -> int -> int @@ portable = "%subint"
-end
-
 type t =
   { capacity : int (** The number of domains which can [await] on the barrier *)
   ; passed : int Atomic.t

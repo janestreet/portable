@@ -53,17 +53,15 @@ module Initial = struct
 end
 
 module Mutex = struct
-  type 'k t : value mod contended portable = 'k Expert.Mutex.t
-
-  type packed : value mod contended portable = Expert.Mutex.packed = P : 'k t -> packed
-  [@@unboxed] [@@unsafe_allow_any_mode_crossing]
+  type 'k t = 'k Expert.Mutex.t
+  type packed = Expert.Mutex.packed = P : 'k t -> packed [@@unboxed]
 
   let create () =
     let (P (type k) (key : k Expert.Key.t)) = Expert.create () in
     P (Expert.Mutex.create key)
   ;;
 
-  let create_m () : (module With_mutex) =
+  let create_m () : (module Module_with_mutex) =
     let (P (type k) (t : k t)) = create () in
     (module struct
       type nonrec k = k
@@ -125,5 +123,57 @@ module Isolated = struct
 
   let get_id_contended (P { data; key }) =
     P { data; key }, { aliased = Data.get_id_contended data }
+  ;;
+end
+
+module With_mutex = struct
+  type ('a, 'k) inner =
+    { data : ('a, 'k) Data.t
+    ; mutex : 'k Mutex.t
+    }
+
+  type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+
+  let create f =
+    let (P mutex) = Mutex.create () in
+    let data = Data.create f in
+    P { data; mutex }
+  ;;
+
+  let of_isolated (Isolated.P { key; data }) =
+    let mutex = Expert.Mutex.create key in
+    P { mutex; data }
+  ;;
+
+  module Guard = struct
+    type ('a, 'k) inner =
+      { password : 'k Password.t
+      ; data : ('a, 'k) Data.t @@ global
+      }
+
+    (** A value of this type represents a currently-locked [Capsule.With_mutex.t] *)
+    type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+  end
+
+  let with_lock (P { mutex; data }) ~f =
+    Mutex.with_lock mutex ~f:(fun password -> f (Guard.P { password; data }) [@nontail])
+    [@nontail]
+  ;;
+
+  let get (P { mutex; data }) ~f =
+    (Mutex.with_lock mutex ~f:(fun password ->
+       Data.get ~password data ~f:(fun x -> { portable = f x }) |> Modes.Contended.cross))
+      .portable
+  ;;
+
+  let map (P { mutex; data }) ~f =
+    let data = Mutex.with_lock mutex ~f:(fun password -> Data.map ~password ~f data) in
+    P { mutex; data }
+  ;;
+
+  let destroy (P { mutex; data }) =
+    let key = Expert.Mutex.destroy mutex in
+    let access = Expert.Key.destroy key in
+    Expert.Data.unwrap data ~access
   ;;
 end
