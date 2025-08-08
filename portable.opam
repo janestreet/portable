@@ -13,10 +13,10 @@ depends: [
   "ocaml" {>= "5.1.0"}
   "base"
   "basement"
-  "ppx_jane"
-  "uopt"
-  "backoff"
-  "dune"     {>= "3.17.0"}
+  "ppx_sexp_conv"
+  "ppx_shorthand"
+  "ppx_template"
+  "dune"          {>= "3.17.0"}
 ]
 available: arch != "arm32" & arch != "x86_32"
 synopsis: "Library for parallel programming in OCaml and OxCaml"

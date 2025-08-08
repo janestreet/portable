@@ -3,4 +3,4 @@
  (libraries core expect_test_helpers_core portable_kernel
    portable_test_helpers)
  (preprocess
-  (pps ppx_jane)))
+  (pps ppx_expect ppx_sexp_message ppx_template)))

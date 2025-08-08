@@ -4,7 +4,7 @@ module Compare_failed_or_set_here = struct
   type t = Basement.Compare_failed_or_set_here.t =
     | Compare_failed
     | Set_here
-  [@@deriving sexp_of ~localize]
+  [@@deriving sexp_of ~stackify]
 end
 
 type 'a t = 'a Basement.Portable_atomic.t
@@ -45,9 +45,9 @@ let[@inline] update_and_return t ~pure_f =
     let new_ = pure_f old in
     match compare_and_set t ~if_phys_equal_to:old ~replace_with:new_ with
     | Set_here -> old
-    | Compare_failed -> aux (Backoff.once backoff)
+    | Compare_failed -> aux (Basement.Stdlib_shim.Backoff.once backoff)
   in
-  aux Backoff.default [@nontail]
+  aux Basement.Stdlib_shim.Backoff.default [@nontail]
 ;;
 
 let[@inline] update (type a) (t : a t) ~pure_f =

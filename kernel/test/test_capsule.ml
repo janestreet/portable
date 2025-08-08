@@ -29,3 +29,29 @@ module%test [@name "[Capsule.Isolated]"] _ = struct
       |}]
   ;;
 end
+
+module%test [@name "[Capsule.Initial]"] _ = struct
+  let%expect_test "[if_on_initial] allocation" =
+    let capsule = Capsule.Initial.Data.wrap "foo" in
+    require_no_allocation (fun () ->
+      (Capsule.Initial.Data.if_on_initial [@alloc stack])
+        capsule
+        ~f:(ignore : string -> unit));
+    require_no_allocation (fun () ->
+      (Capsule.Initial.Data.if_on_initial [@alloc heap])
+        capsule
+        ~f:(ignore : string -> unit))
+  ;;
+
+  let%expect_test "[iter_exn] allocation in the happy case" =
+    let capsule = Capsule.Initial.Data.wrap [| "foo" |] in
+    require_no_allocation (fun () ->
+      (Capsule.Initial.Data.iter_exn [@alloc stack])
+        capsule
+        ~f:(ignore : string array -> unit));
+    require_no_allocation (fun () ->
+      (Capsule.Initial.Data.iter_exn [@alloc heap])
+        capsule
+        ~f:(ignore : string array -> unit))
+  ;;
+end

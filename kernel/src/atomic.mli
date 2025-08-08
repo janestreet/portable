@@ -30,7 +30,7 @@ module Compare_failed_or_set_here : sig
   type t = Basement.Compare_failed_or_set_here.t =
     | Compare_failed
     | Set_here
-  [@@deriving sexp_of ~localize]
+  [@@deriving sexp_of ~stackify]
 end
 
 type !'a t = 'a Basement.Portable_atomic.t
