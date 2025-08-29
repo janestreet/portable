@@ -159,6 +159,11 @@ module Isolated = struct
   ;;
 
   let with_shared = with_shared_gen
+  let unwrap_shared (P { key; data }) = Expert.Data.project_shared ~key data
+
+  let%template[@mode local] unwrap_shared (P { key; data }) =
+    Expert.Data.Local.project_shared ~key data
+  ;;
 
   let unwrap (P { key; data }) =
     let access = Expert.Key.destroy key in
@@ -186,9 +191,10 @@ module Guard = struct
   let[@inline] with_ a ~f =
     let (P access) = Access.current () in
     let data = Data.wrap ~access a in
-    Expert.Password.with_current access (fun password ->
-      f (P { data; password }) [@nontail])
-    [@nontail]
+    (Expert.Password.with_current access (fun password ->
+       { aliased = { global = f (P { data; password }) } }))
+      .aliased
+      .global
   ;;
 
   let[@inline] get (P { data; password }) ~f =

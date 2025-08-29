@@ -7,10 +7,16 @@ let%expect_test "update from multiple threads" =
   let start = Barrier.create num_threads in
   let stop = Barrier.create (num_threads + 1) in
   for n = 0 to num_threads - 1 do
-    Multicore.spawn (fun () ->
-      Barrier.await start;
-      Atomic.update atomic ~pure_f:(fun l -> n :: l);
-      Barrier.await stop)
+    match
+      Multicore.spawn
+        (fun () ->
+          Barrier.await start;
+          Atomic.update atomic ~pure_f:(fun l -> n :: l);
+          Barrier.await stop)
+        ()
+    with
+    | Spawned -> ()
+    | Failed ((), exn, bt) -> Exn.raise_with_original_backtrace exn bt
   done;
   Barrier.await stop;
   let final_result =

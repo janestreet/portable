@@ -114,6 +114,11 @@ module type Capsule = sig
     val%template unwrap : 'a t -> 'a
     [@@mode l = (global, local)]
 
+    (** [unwrap_shared t ~f] takes an [aliased] isolated capsule [t] and returns the
+        underlying value at [shared]. *)
+    val%template unwrap_shared : 'a. 'a t -> 'a
+    [@@mode l = (global, local)]
+
     (** Project out a contended reference to the underlying value from a unique [t],
         returning the unique [t] back alongside the alias to the underlying value. *)
     val get_id_contended : 'a. 'a t -> 'a t * 'a Modes.Aliased.t

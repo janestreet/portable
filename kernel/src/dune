@@ -3,4 +3,5 @@
  (public_name portable.kernel)
  (libraries base basement)
  (preprocess
-  (pps ppx_shorthand ppx_sexp_conv ppx_template)))
+  (pps ppx_shorthand ppx_compare base_quickcheck.ppx_quickcheck ppx_sexp_conv
+    ppx_template)))

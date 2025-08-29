@@ -1,4 +1,5 @@
 open! Base
+module Backoff = Basement.Stdlib_shim.Backoff
 
 module Compare_failed_or_set_here = struct
   type t = Basement.Compare_failed_or_set_here.t =
@@ -45,9 +46,9 @@ let[@inline] update_and_return t ~pure_f =
     let new_ = pure_f old in
     match compare_and_set t ~if_phys_equal_to:old ~replace_with:new_ with
     | Set_here -> old
-    | Compare_failed -> aux (Basement.Stdlib_shim.Backoff.once backoff)
+    | Compare_failed -> aux (Backoff.once backoff)
   in
-  aux Basement.Stdlib_shim.Backoff.default [@nontail]
+  aux Backoff.default [@nontail]
 ;;
 
 let[@inline] update (type a) (t : a t) ~pure_f =

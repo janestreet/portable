@@ -18,8 +18,9 @@
 
     {[
       open! Base
+      open! Portable
 
-      let atomically_add_to_set (set_atomic : (_, _) Set.t Atomic.t) value =
+      let atomically_add_to_set (set_atomic : Set.M(Int).t Atomic.t) value =
         Atomic.update set_atomic ~pure_f:(fun set -> Set.add set value)
       ;;
     ]} *)

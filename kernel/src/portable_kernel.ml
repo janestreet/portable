@@ -1,3 +1,3 @@
 module Atomic = Atomic
+module Atomic_array = Atomic_array
 module Capsule = Capsule
-module Capsule_intf = Capsule_intf
