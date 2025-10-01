@@ -1,12 +1,14 @@
 open! Base
-include Capsule_intf.Definitions
 module Expert = Basement.Capsule
 
 module Access = struct
   type 'k t = 'k Expert.Access.t
   type packed = Expert.Access.packed = P : 'k t -> packed [@@unboxed]
+  type 'k boxed = 'k Expert.Access.boxed
 
   let current = Expert.current
+  let unbox = Expert.Access.unbox
+  let box = Expert.Access.box
 end
 
 module Data = struct
@@ -40,11 +42,14 @@ module Initial = struct
 
   let access = Expert.initial
 
+  let with_access_opt ~f =
+    (Expert.access_initial (fun access -> { global = { aliased = f access } })).global
+      .aliased
+  ;;
+
   let%template with_access_opt ~f =
-    (Basement.Stdlib_shim.Domain.Safe.DLS.access [@mode l]) (fun access ->
-      f (Expert.get_initial access) [@exclave_if_stack a] [@nontail])
-    [@nontail] [@exclave_if_stack a]
-  [@@alloc a @ l = (heap_global, stack_local)]
+    (Expert.access_initial (fun access -> { aliased = f access })).aliased
+  [@@alloc a @ l = stack_local]
   ;;
 
   module Data = struct
@@ -53,8 +58,15 @@ module Initial = struct
     [%%template
     [@@@mode.default l = (global, local)]
 
-    let wrap a = (Data.wrap [@mode l]) ~access:Expert.initial a [@exclave_if_local l]
-    let unwrap a = (Data.unwrap [@mode l]) ~access:Expert.initial a [@exclave_if_local l]]
+    let wrap a =
+      let access = Access.unbox access in
+      (Data.wrap [@mode l]) ~access a [@exclave_if_local l]
+    ;;
+
+    let unwrap a =
+      let access = Access.unbox access in
+      (Data.unwrap [@mode l]) ~access a [@exclave_if_local l]
+    ;;]
 
     [%%template
     [@@@alloc.default a @ l = (heap_global, stack_local)]
@@ -62,7 +74,8 @@ module Initial = struct
     let[@inline] get_opt a ~f =
       (with_access_opt [@alloc a]) ~f:(fun access ->
         match[@exclave_if_stack a] access with
-        | Some access -> Some (f ((Data.unwrap [@mode l]) ~access a))
+        | Some access ->
+          Some (f ((Data.unwrap [@mode l]) ~access:(Access.unbox access) a))
         | None -> None)
       [@exclave_if_stack a] [@nontail]
     ;;
@@ -72,7 +85,8 @@ module Initial = struct
     let if_on_initial a ~f =
       (with_access_opt [@alloc a]) ~f:(fun access ->
         match access with
-        | Some access -> f ((Data.unwrap [@mode l]) ~access a) [@nontail]
+        | Some access ->
+          f ((Data.unwrap [@mode l]) ~access:(Access.unbox access) a) [@nontail]
         | None -> ())
       [@nontail]
     ;;
@@ -80,7 +94,8 @@ module Initial = struct
     let get_exn a ~f =
       (with_access_opt [@alloc a]) ~f:(fun access ->
         match[@exclave_if_stack a] access with
-        | Some access -> f ((Data.unwrap [@mode l]) ~access a) [@nontail]
+        | Some access ->
+          f ((Data.unwrap [@mode l]) ~access:(Access.unbox access) a) [@nontail]
         | None ->
           failwith
             "[Capsule.Initial.Data.get_exn] called from a capsule other than the initial \
@@ -93,37 +108,6 @@ module Initial = struct
     let sexp_of_t sexp_of_a t = sexp_of_a (unwrap t)
     let t_of_sexp a_of_sexp a = wrap (a_of_sexp a)
   end
-end
-
-module Mutex = struct
-  type 'k t = 'k Expert.Mutex.t
-  type packed = Expert.Mutex.packed = P : 'k t -> packed [@@unboxed]
-
-  let create () =
-    let (P (type k) (key : k Expert.Key.t)) = Expert.create () in
-    P (Expert.Mutex.create key)
-  ;;
-
-  let create_m () : (module Module_with_mutex) =
-    let (P (type k) (t : k t)) = create () in
-    (module struct
-      type nonrec k = k
-
-      let mutex = t
-    end)
-  ;;
-
-  module Create () = (val create_m ())
-
-  let[@inline] with_lock t ~f =
-    (Expert.Mutex.with_lock t ~f:(fun password ->
-       { portended =
-           Expert.access ~password ~f:(fun access -> { many = { aliased = f access } })
-       }))
-      .portended
-      .many
-      .aliased
-  ;;
 end
 
 module Isolated = struct
@@ -203,49 +187,74 @@ module Guard = struct
   ;;
 
   let get_contended = get
-  let[@inline] iter (P { data; password }) ~f = Expert.Data.iter data ~password ~f
+  let iter = get
 
   let[@inline] map (P { data; password }) ~f =
     P { data = Expert.Data.map data ~password ~f; password }
   ;;
 end
 
-module With_mutex = struct
+module Shared = struct
   type ('a, 'k) inner =
-    { data : ('a, 'k) Data.t
-    ; mutex : 'k Mutex.t
+    { data : ('a shared, 'k) Data.t
+    ; password : 'k Expert.Password.Shared.t
     }
 
   type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
 
-  let create f =
-    let (P mutex) = Mutex.create () in
-    let data = Data.create f in
-    P { data; mutex }
+  module Uncontended = struct
+    type ('a, 'k) t = ('a, 'k) inner =
+      { data : ('a shared, 'k) Data.t
+      ; password : 'k Expert.Password.Shared.t
+      }
+
+    type ('a, 'b) f = { f : 'k. ('a, 'k) inner -> ('b, 'k) Expert.Data.Shared.t }
+
+    let[@inline] with_ data { f } =
+      let (P access) = Access.current () in
+      let data = Data.wrap ~access { shared = data } in
+      let { global = { aliased = data } } =
+        Expert.Password.with_current access (fun [@inline] password ->
+          let password = Expert.Password.shared password in
+          Expert.Password.Shared.borrow password (fun [@inline] password ->
+            { global = { aliased = f { data; password } } })
+          [@nontail])
+      in
+      Expert.Data.Shared.unwrap ~access data
+    ;;
+
+    let[@inline] get { data; password } ~f =
+      Expert.Data.Shared.map_into data ~password ~f:(fun [@inline] { shared } -> f shared)
+      [@nontail]
+    ;;
+
+    let[@inline] map { data; password } ~f =
+      { data =
+          Expert.Data.map_shared data ~password ~f:(fun [@inline] { shared } ->
+            { shared = f shared })
+      ; password
+      }
+    ;;
+  end
+
+  let[@inline] with_ data ~f =
+    let (P access) = Access.current () in
+    let data = Data.wrap ~access { shared = data } in
+    (Expert.Password.with_current access (fun [@inline] password ->
+       let password = Expert.Password.shared password in
+       Expert.Password.Shared.borrow password (fun [@inline] password ->
+         { global = { aliased = f (P { data; password }) } })
+       [@nontail]))
+      .global
+      .aliased
   ;;
 
-  let of_isolated (Isolated.P { key; data }) =
-    let mutex = Expert.Mutex.create key in
-    P { mutex; data }
+  let[@inline] get (P t) ~f = Expert.Data.Shared.project (Uncontended.get t ~f)
+
+  let[@inline] get_contended t ~f =
+    (get t ~f:(fun [@inline] a -> { portended = f a })).portended
   ;;
 
-  let with_lock (P { mutex; data }) ~f =
-    Mutex.with_lock mutex ~f:(fun access -> f (Data.unwrap ~access data)) [@nontail]
-  ;;
-
-  let iter = with_lock
-
-  let map (P { mutex; data }) ~f =
-    let data =
-      Mutex.with_lock mutex ~f:(fun access ->
-        Data.wrap ~access (f (Data.unwrap ~access data)))
-    in
-    P { mutex; data }
-  ;;
-
-  let destroy (P { mutex; data }) =
-    let key = Expert.Mutex.destroy mutex in
-    let access = Expert.Key.destroy key in
-    Expert.Data.unwrap data ~access
-  ;;
+  let iter = get
+  let[@inline] map (P t) ~f = P (Uncontended.map t ~f)
 end

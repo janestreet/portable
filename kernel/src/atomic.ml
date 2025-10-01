@@ -1,5 +1,5 @@
 open! Base
-module Backoff = Basement.Stdlib_shim.Backoff
+open Basement
 
 module Compare_failed_or_set_here = struct
   type t = Basement.Compare_failed_or_set_here.t =

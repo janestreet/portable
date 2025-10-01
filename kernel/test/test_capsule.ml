@@ -55,3 +55,77 @@ module%test [@name "[Capsule.Initial]"] _ = struct
         ~f:(ignore : string array -> unit))
   ;;
 end
+
+module%test [@name "[Capsule.Shared]"] _ = struct
+  let fork_join : (unit -> 'a) -> (unit -> 'b) -> 'a * 'b =
+    fun f g ->
+    let a = f () in
+    let b = g () in
+    a, b
+  ;;
+
+  let%expect_test "crossing" =
+    let array = [| "foo"; "bar" |] in
+    let result =
+      Capsule.Shared.with_ array ~f:(fun shared ->
+        let a, b =
+          fork_join
+            (fun () ->
+              Capsule.Shared.get shared ~f:(fun array ->
+                (Array.get [@mode shared]) array 0))
+            (fun () ->
+              Capsule.Shared.get shared ~f:(fun array ->
+                (Array.get [@mode shared]) array 1))
+        in
+        a ^ b)
+    in
+    print_s [%message (result : string)];
+    [%expect {| (result foobar) |}]
+  ;;
+
+  let%expect_test "uncontended" =
+    let array = [| "foo"; "bar" |] in
+    let result =
+      Capsule.Shared.Uncontended.with_
+        array
+        { f =
+            (fun shared ->
+              let a, b =
+                fork_join
+                  (fun () ->
+                    Capsule.Shared.Uncontended.get shared ~f:(fun array ->
+                      ref ((Array.get [@mode shared]) array 0)))
+                  (fun () ->
+                    Capsule.Shared.Uncontended.get shared ~f:(fun array ->
+                      ref ((Array.get [@mode shared]) array 1)))
+              in
+              Capsule.Expert.Data.Shared.both a b)
+        }
+    in
+    print_s [%message (result : string ref * string ref)];
+    [%expect {| (result (foo bar)) |}]
+  ;;
+
+  let%expect_test "with_ doesn't allocate" =
+    let x = [| "foo"; "bar" |] in
+    ignore
+      (require_no_allocation (fun () ->
+         Capsule.Shared.with_ x ~f:(fun g ->
+           Capsule.Shared.get g ~f:(fun s -> (Array.get [@mode shared]) s 0)))
+       : string)
+  ;;
+
+  let%expect_test "Uncontended.with_ doesn't allocate" =
+    let x = [| "foo"; "bar" |] in
+    ignore
+      (require_no_allocation (fun () ->
+         Capsule.Shared.Uncontended.with_
+           x
+           { f =
+               (fun g ->
+                 Capsule.Shared.Uncontended.get g ~f:(fun (s : string array) ->
+                   (Array.get [@mode shared]) s 0))
+           })
+       : string)
+  ;;
+end
