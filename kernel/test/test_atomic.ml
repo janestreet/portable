@@ -1,6 +1,5 @@
 open! Core
 open! Portable_kernel
-open Portable_test_helpers
 open Expect_test_helpers_core
 
 let%expect_test "compare_and_set" =
@@ -38,28 +37,6 @@ let%expect_test "update_and_return" =
     ((result    1)
      (new_value 2))
     |}]
-;;
-
-let%expect_test ("update from multiple domains"
-  [@tags "runtime5-only", "no-js", "no-wasm"])
-  =
-  let atomic = Atomic.make [] in
-  let num_domains = 5 in
-  let barrier = Barrier.create num_domains in
-  let domains =
-    List.init num_domains ~f:(fun n ->
-      (Stdlib.Domain.Safe.spawn [@alert "-unsafe_parallelism"]) (fun () ->
-        Barrier.await barrier;
-        Atomic.update atomic ~pure_f:(fun l -> n :: l)))
-  in
-  List.iter domains ~f:Domain.join;
-  let final_result =
-    Atomic.get atomic
-    |> Portability_hacks.Cross.Contended.(cross (list infer))
-    |> List.sort ~compare:Int.compare
-  in
-  print_s [%message (final_result : int list)];
-  [%expect {| (final_result (0 1 2 3 4)) |}]
 ;;
 
 let%expect_test "update doesn't allocate" =

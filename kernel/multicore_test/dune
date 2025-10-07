@@ -1,0 +1,5 @@
+(library
+ (name portable_kernel_multicore_test)
+ (libraries core portable_test_helpers threads)
+ (preprocess
+  (pps ppx_jane)))

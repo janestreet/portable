@@ -46,12 +46,12 @@ let await { waiters; capacity; passed } =
     (* Otherwise, if we were /not/ the [capacity]th waiter, wait for the [capacity]th
        waiter to reset the barrier. *)
     while Atomic.get waiters = capacity do
-      Domain.cpu_relax ()
+      Basement.Stdlib_shim.Domain.cpu_relax ()
     done;
   (* Finally, each waiter increments [waiters] up to [capacity] *)
   Atomic.incr waiters;
   while Atomic.get waiters < capacity do
-    Domain.cpu_relax ()
+    Basement.Stdlib_shim.Domain.cpu_relax ()
     (* When each domain now exits from [await], we're back to the initial state setup by
      [create]:
 

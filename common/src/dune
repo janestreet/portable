@@ -1,5 +1,4 @@
 (library
  (name portable_common)
  (public_name portable.common)
- (preprocess
-  (pps ppx_jane)))
+ (preprocess no_preprocessing))
