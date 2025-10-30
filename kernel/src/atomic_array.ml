@@ -12,27 +12,21 @@ module Atomic = Atomic_
 module Impl : sig
   type !'a t
 
-  val create : len:int -> 'a -> 'a t
-  val init : int -> f:(int -> 'a) -> 'a t
-  val length : 'a t -> int
-  val of_list : 'a list -> 'a t
-  val unsafe_get : 'a t -> int -> 'a
-  val unsafe_set : 'a t -> int -> 'a -> unit
-  val unsafe_exchange : 'a t -> int -> 'a -> 'a
+  val create : 'a. len:int -> 'a -> 'a t
+  val init : 'a. int -> f:(int -> 'a) -> 'a t
+  val length : 'a. 'a t -> int
+  val of_list : 'a. 'a list -> 'a t
+  val unsafe_get : 'a. 'a t -> int -> 'a
+  val unsafe_set : 'a. 'a t -> int -> 'a -> unit
+  val unsafe_exchange : 'a. 'a t -> int -> 'a -> 'a
 
   val unsafe_compare_and_set
-    :  'a t
-    -> int
-    -> if_phys_equal_to:'a
-    -> replace_with:'a
-    -> Compare_failed_or_set_here.t
+    : 'a.
+    'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> Compare_failed_or_set_here.t
 
   val unsafe_compare_exchange
-    :  'a t
-    -> int
-    -> if_phys_equal_to:'a
-    -> replace_with:'a
-    -> 'a
+    : 'a.
+    'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> 'a
 
   val unsafe_fetch_and_add : int t -> int -> int -> int
   val unsafe_add : int t -> int -> int -> unit

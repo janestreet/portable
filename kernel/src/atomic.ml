@@ -22,22 +22,21 @@ let make_alone =
     make
 ;;
 
-external get : ('a t[@local_opt]) -> 'a = "%atomic_load"
-external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
-external set : ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
+external get : 'a. ('a t[@local_opt]) -> 'a = "%atomic_load"
+external exchange : 'a. ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
+external set : 'a. ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
 
 external compare_and_set
-  :  ('a t[@local_opt])
+  : 'a.
+  ('a t[@local_opt])
   -> if_phys_equal_to:'a
   -> replace_with:'a
   -> Compare_failed_or_set_here.t
   = "%atomic_cas"
 
 external compare_exchange
-  :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
-  -> 'a
+  : 'a.
+  ('a t[@local_opt]) -> if_phys_equal_to:'a -> replace_with:'a -> 'a
   = "caml_atomic_compare_exchange_stub"
 
 let[@inline] update_and_return t ~pure_f =
@@ -69,7 +68,7 @@ let t_of_sexp a_of_sexp sexp = make (a_of_sexp sexp)
 
 module Expert = struct
   (* This is subject to CSE. *)
-  external fenceless_get_cse : ('a t[@local_opt]) -> 'a = "%field0"
+  external fenceless_get_cse : 'a. ('a t[@local_opt]) -> 'a = "%field0"
 
   let[@inline] fenceless_get t =
     (* We use [Sys.opaque_identity] to prevent CSE. *)

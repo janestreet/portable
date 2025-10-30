@@ -17,9 +17,9 @@ module Data = struct
   let create = Expert.Data.create
   let wrap = Expert.Data.wrap
   let unwrap = Expert.Data.unwrap
+  let%template[@mode global shared] unwrap = Expert.Data.unwrap_shared
   let return = Expert.Data.inject
   let get_id = Expert.Data.project
-  let get_id_contended = Expert.Data.project
   let both = Expert.Data.both
   let fst = Expert.Data.fst
   let snd = Expert.Data.snd
@@ -29,9 +29,9 @@ module Data = struct
 
   let wrap = Expert.Data.Local.wrap
   let unwrap = Expert.Data.Local.unwrap
+  let[@mode local shared] unwrap = Expert.Data.Local.unwrap_shared
   let return = Expert.Data.Local.inject
   let get_id = Expert.Data.Local.project
-  let get_id_contended = Expert.Data.Local.project
   let both = Expert.Data.Local.both
   let fst = Expert.Data.Local.fst
   let snd = Expert.Data.Local.snd]
@@ -49,6 +49,17 @@ module Initial = struct
 
   let%template with_access_opt ~f =
     (Expert.access_initial (fun access -> { aliased = f access })).aliased
+  [@@alloc a @ l = stack_local]
+  ;;
+
+  let with_access_domain_opt ~f =
+    (Expert.access_initial_domain (fun access -> { global = { aliased = f access } }))
+      .global
+      .aliased
+  ;;
+
+  let%template with_access_domain_opt ~f =
+    (Expert.access_initial_domain (fun access -> { aliased = f access })).aliased
   [@@alloc a @ l = stack_local]
   ;;
 
@@ -91,6 +102,17 @@ module Initial = struct
       [@nontail]
     ;;
 
+    (* NOTE: This isn't defined in terms of [get_opt] to avoid allocating the extra
+       option *)
+    let if_on_initial_domain a ~f =
+      (with_access_domain_opt [@alloc a]) ~f:(fun access ->
+        match access with
+        | Some access ->
+          f ((Data.unwrap [@mode l]) ~access:(Access.unbox access) a) [@nontail]
+        | None -> ())
+      [@nontail]
+    ;;
+
     let get_exn a ~f =
       (with_access_opt [@alloc a]) ~f:(fun access ->
         match[@exclave_if_stack a] access with
@@ -112,11 +134,23 @@ end
 
 module Isolated = struct
   type ('a, 'k) inner =
-    { key : 'k Expert.Key.t
-    ; data : ('a, 'k) Data.t
+    { data : ('a, 'k) Data.t
+    ; key : 'k Expert.Key.t
     }
 
   type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
+  type 'a boxed
+
+  external unsafe_box : ('a, 'k) Data.t -> 'a boxed = "%identity"
+  external unsafe_unbox : 'a boxed -> ('a, 'k) Data.t = "%identity"
+
+  let box (P { data; key = _ }) = unsafe_box data
+
+  let unbox boxed =
+    let (P key) = Basement.Capsule.create () in
+    let data = unsafe_unbox boxed in
+    P { data; key }
+  ;;
 
   let create f =
     let (P key) = Expert.create () in
@@ -159,9 +193,7 @@ module Isolated = struct
     Expert.Data.Local.unwrap ~access data
   ;;
 
-  let get_id_contended (P { data; key }) =
-    P { data; key }, { aliased = Data.get_id_contended data }
-  ;;
+  let get_id (P { data; key }) = P { data; key }, { aliased = Data.get_id data }
 end
 
 module Guard = struct
@@ -186,7 +218,6 @@ module Guard = struct
       .aliased
   ;;
 
-  let get_contended = get
   let iter = get
 
   let[@inline] map (P { data; password }) ~f =
@@ -249,10 +280,10 @@ module Shared = struct
       .aliased
   ;;
 
-  let[@inline] get (P t) ~f = Expert.Data.Shared.project (Uncontended.get t ~f)
-
-  let[@inline] get_contended t ~f =
-    (get t ~f:(fun [@inline] a -> { portended = f a })).portended
+  let[@inline] get (P t) ~f =
+    (Expert.Data.Shared.project
+       (Uncontended.get t ~f:(fun [@inline] a -> { portended = f a })))
+      .portended
   ;;
 
   let iter = get

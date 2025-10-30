@@ -40,7 +40,7 @@ type !'a t = 'a Basement.Portable_atomic.t
 [%%rederive: type nonrec !'a t = 'a t [@@deriving of_sexp]]
 
 (** [make v] creates an atomic reference with initial value [v] *)
-val make : 'a -> 'a t
+val make : 'a. 'a -> 'a t
 
 (** [make_alone v] creates an atomic reference with initial value [v] which is alone on a
     cache line. It occupies 4-16x the memory of one allocated with [make v].
@@ -52,16 +52,16 @@ val make : 'a -> 'a t
     simultaneously becomes impossible, which can create a bottleneck. Hence, as a general
     guideline, if an atomic reference is experiencing contention, assigning it its own
     cache line may improve performance. *)
-val make_alone : 'a -> 'a t
+val make_alone : 'a. 'a -> 'a t
 
 (** [get r] gets the the current value of [r]. *)
-external get : ('a t[@local_opt]) -> 'a = "%atomic_load"
+external get : 'a. ('a t[@local_opt]) -> 'a = "%atomic_load"
 
 (** [set r v] sets the value of [r] to [v] *)
-external set : ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
+external set : 'a. ('a t[@local_opt]) -> 'a -> unit = "caml_atomic_set_stub"
 
 (** [exchange r v] sets the value of [r] to [v], and returns the previous value *)
-external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
+external exchange : 'a. ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
 
 (** [compare_and_set r ~if_phys_equal_to ~replace_with] sets the new value of [r] to
     [replace_with] {i only} if its current value is physically equal to [if_phys_equal_to]
@@ -70,7 +70,8 @@ external exchange : ('a t[@local_opt]) -> 'a -> 'a = "%atomic_exchange"
     current value was not physically equal to [if_phys_equal_to] and hence the atomic
     reference was left unchanged. *)
 external compare_and_set
-  :  ('a t[@local_opt])
+  : 'a.
+  ('a t[@local_opt])
   -> if_phys_equal_to:'a
   -> replace_with:'a
   -> Compare_failed_or_set_here.t
@@ -81,20 +82,18 @@ external compare_and_set
     the comparison and the set occur atomically. Returns the previous value of [r], or the
     current (unchanged) value if the comparison failed. *)
 external compare_exchange
-  :  ('a t[@local_opt])
-  -> if_phys_equal_to:'a
-  -> replace_with:'a
-  -> 'a
+  : 'a.
+  ('a t[@local_opt]) -> if_phys_equal_to:'a -> replace_with:'a -> 'a
   = "caml_atomic_compare_exchange_stub"
 
 (** [update t ~pure_f] atomically updates [t] to be the result of [pure_f (get t)].
     [pure_f] may be called multiple times, so should be free of side effects. *)
-val update : 'a t -> pure_f:('a -> 'a) -> unit
+val update : 'a. 'a t -> pure_f:('a -> 'a) -> unit
 
 (** [update_and_return t ~pure_f] atomically updates [t] to be the result of
     [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
     effects. Returns the old value. *)
-val update_and_return : 'a t -> pure_f:('a -> 'a) -> 'a
+val update_and_return : 'a. 'a t -> pure_f:('a -> 'a) -> 'a
 
 (** [fetch_and_add r n] atomically increments the value of [r] by [n], and returns the
     previous value (before the increment). *)
@@ -128,5 +127,5 @@ module Expert : sig
       This is dubiously safe, and has no explicit semantics within the OCaml memory
       model - and may do the wrong thing entirely on backends with weak memory models such
       as ARM. Use with caution! *)
-  val fenceless_get : 'a t -> 'a
+  val fenceless_get : 'a. 'a t -> 'a
 end

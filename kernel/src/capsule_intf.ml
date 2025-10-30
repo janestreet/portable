@@ -34,7 +34,9 @@ module type Capsule = sig
     [@@@mode.default l = (global, local)]
 
     val wrap : access:'k Access.t -> 'a -> ('a, 'k) t
-    val unwrap : access:'k Access.t -> ('a, 'k) t -> 'a
+
+    val unwrap : 'a 'k. access:'k Access.t -> ('a, 'k) t -> 'a
+    [@@mode l = l, (c, p) = ((uncontended, nonportable), (shared, portable))]
 
     (** These functions enable more complicated manipulation of capsules. *)
 
@@ -45,16 +47,13 @@ module type Capsule = sig
 
     (** Retrieve the value in a capsule directly. Likely only useful if the capsule has
         already been [map]'d, as capsules do not usually contain portable values. *)
-    val get_id : 'a 'k. ('a, 'k) t -> 'a
-
-    (** Like [get_id], for types that do not cross contention. *)
-    val get_id_contended : ('a, 'k) t -> 'a]
+    val get_id : 'a 'k. ('a, 'k) t -> 'a]
   end
 
   module Isolated : sig
     type ('a, 'k) inner =
-      { key : 'k Capsule.Key.t
-      ; data : ('a, 'k) Data.t
+      { data : ('a, 'k) Data.t
+      ; key : 'k Capsule.Key.t
       }
 
     (** A value isolated within its own capsule.
@@ -69,6 +68,12 @@ module type Capsule = sig
         get ['a @ unique]. *)
     type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
 
+    (** A boxed representation of {{!t} an isolated value}. *)
+    type 'a boxed
+
+    val box : 'a t -> 'a boxed
+    val unbox : 'a boxed -> 'a t
+
     (** [create f] runs [f] within a fresh capsule, and creates a [Capsule.Isolated.t]
         containing the result. *)
     val create : (unit -> 'a) -> 'a t
@@ -80,13 +85,9 @@ module type Capsule = sig
     (** Like [with_unique], but with the most general mode annotations. *)
     val with_unique_gen : 'a t -> f:('a -> 'b) -> 'a t * 'b
 
-    (** [with_unique t ~f] takes an [aliased] isolated capsule [t], calls [f] with shared
-        access to its value, and returns a tuple of the unique isolated capsule and the
-        result of [f]. *)
+    (** [with_shared t ~f] takes an [aliased] isolated capsule [t], calls [f] with shared
+        access to its value, and returns the result of [f]. *)
     val with_shared : 'a 'b. 'a t -> f:('a -> 'b) -> 'b
-
-    (** Like [with_shared], but with the most general mode annotations. *)
-    val with_shared_gen : 'a 'b. 'a t -> f:('a -> 'b) -> 'b
 
     (** [unwrap t ~f] takes a [unique] isolated capsule [t] and returns the underlying
         value, merging the capsule with the current capsule. *)
@@ -100,7 +101,7 @@ module type Capsule = sig
 
     (** Project out a contended reference to the underlying value from a unique [t],
         returning the unique [t] back alongside the alias to the underlying value. *)
-    val get_id_contended : 'a. 'a t -> 'a t * 'a Modes.Aliased.t
+    val get_id : 'a. 'a t -> 'a t * 'a Modes.Aliased.t
   end
 
   module Guard : sig
@@ -120,10 +121,7 @@ module type Capsule = sig
     val with_ : 'a -> f:('a t -> 'b) -> 'b
 
     (** [get t ~f] computes a value using the data accessible via [t]. *)
-    val get : 'a 'b. 'a t -> f:('a -> 'b) -> 'b
-
-    (** Like [get], but for result types that do not cross portability and contention. *)
-    val get_contended : 'a t -> f:('a -> 'b) -> 'b
+    val get : 'a t -> f:('a -> 'b) -> 'b
 
     (** Like [get], but for for functions that return [unit]. *)
     val iter : 'a t -> f:('a -> unit) -> unit
@@ -141,19 +139,16 @@ module type Capsule = sig
     (** An encapsulated value that may be read for the duration of the current region.
 
         A value of type ['a Shared.t] provides [shared] access to the underlying ['a] over
-        a local scope. An [unyielding] ['a Shared.t] can be captured by functions that run
-        on other domains. *)
+        a local scope. A [forkable] ['a Shared.t] can be captured by functions that run on
+        other domains. *)
     type 'a t = P : ('a, 'k) inner -> 'a t [@@unboxed]
 
-    (** [with_ a ~f] calls [f] with a [local unyielding] {!Shared.t} representing local
+    (** [with_ a ~f] calls [f] with a [local forkable] {!Shared.t} representing local
         read-only access to [a], which is readable in the current capsule. *)
     val with_ : 'a 'b. 'a -> f:('a t -> 'b) -> 'b
 
     (** [get t ~f] computes a value using data accessible via [t]. *)
     val get : 'a 'b. 'a t -> f:('a -> 'b) -> 'b
-
-    (** Like [get], but for result types that do not cross portability and contention. *)
-    val get_contended : 'a 'b. 'a t -> f:('a -> 'b) -> 'b
 
     (** Like [get], but for for functions that return [unit]. *)
     val iter : 'a. 'a t -> f:('a -> unit) -> unit
@@ -171,7 +166,7 @@ module type Capsule = sig
 
       type ('a, 'b) f = { f : 'k. ('a, 'k) t -> ('b, 'k) Capsule.Data.Shared.t }
 
-      (** [with_ a ~f] calls [f] with a [local unyielding] {!Uncontended.t} representing
+      (** [with_ a ~f] calls [f] with a [local forkable] {!Uncontended.t} representing
           local read-only access to [a], which is readable in the current capsule.
 
           The result of [f] is a [Capsule.Data.Shared.t], which can be unwrapped in the
@@ -228,6 +223,10 @@ module type Capsule = sig
       (** If called on the initial domain, [if_on_initial t ~f] calls [f] with the
           contents of [t]. Otherwise, it does nothing. *)
       val if_on_initial : 'a 'b. 'a t -> f:('a -> unit) -> unit
+
+      (** If called on the initial domain, [if_on_initial t ~f] calls [f] with the
+          contents of [t]. Otherwise, it does nothing. *)
+      val if_on_initial_domain : 'a 'b. 'a t -> f:('a -> unit) -> unit
 
       (** If running on the initial domain, calls [f] with the value inside a
           [Capsule.Initial.Data.t]. Otherwise, raises. *)
