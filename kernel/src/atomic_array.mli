@@ -7,46 +7,49 @@ open Base
 
     This is essentially a ['a Core.Atomic.t array], except it avoids the extra indirection
     of an atomic ref at each index. *)
-type !'a t : value mod contended portable
+type (!'a : value_or_null) t : value mod contended portable
 
 [%%rederive:
-  type nonrec (!'a : value mod contended) t = 'a t
+  type nonrec (!'a : value_or_null mod contended) t = 'a t
   [@@deriving sexp_of, compare ~localize, equal ~localize]]
 
-[%%rederive: type nonrec (!'a : value mod portable) t = 'a t [@@deriving of_sexp]]
+[%%rederive: type nonrec (!'a : value_or_null mod portable) t = 'a t [@@deriving of_sexp]]
 
 [%%rederive:
-  type nonrec (!'a : value mod contended portable) t = 'a t [@@deriving quickcheck]]
+  type nonrec (!'a : value_or_null mod contended portable) t = 'a t
+  [@@deriving quickcheck]]
 
 (** [create ~len value] creates a new array of [n] atomic locations having given [value]. *)
-val create : len:int -> 'a @ contended portable -> 'a t
+val create : ('a : value_or_null). len:int -> 'a @ contended portable -> 'a t
 
 (** [init n ~f] returns a fresh atomic array of length [n], with element number [i]
     initialized to the result of [f i]. *)
-val init : int -> f:(int -> 'a @ contended portable) @ local -> 'a t
+val init : ('a : value_or_null). int -> f:(int -> 'a @ contended portable) @ local -> 'a t
 
 (** [of_list l] returns a fresh atomic array containing the elements of the list [l]. *)
-val of_list : 'a list @ contended portable -> 'a t
+val of_list : ('a : value_or_null). 'a list @ contended portable -> 'a t
 
 (** [to_list atomic_array] returns a list containing the elements of the atomic array
     [atomic_array]. The loads of the elements of the array to populate the list are done
     atomically. *)
-val to_list : 'a t @ local -> 'a list @ contended portable
+val to_list : ('a : value_or_null). 'a t @ local -> 'a list @ contended portable
 
 (** [length atomic_array] returns the length of the [atomic_array]. *)
-val length : 'a t @ local -> int
+val length : ('a : value_or_null). 'a t @ local -> int
 
 (** [get atomic_array index] reads and returns the value at the specified [index] of the
     [atomic_array]. Raises [Invalid_argument] if [index] is out of bounds. *)
-val get : 'a t @ local -> int -> 'a @ contended portable
+val get : ('a : value_or_null). 'a t @ local -> int -> 'a @ contended portable
 
 (** [set atomic_array index value] writes the given [value] to the specified [index] of
     the [atomic_array]. Raises [Invalid_argument] if [index] is out of bounds. *)
-val set : 'a t @ local -> int -> 'a @ contended portable -> unit
+val set : ('a : value_or_null). 'a t @ local -> int -> 'a @ contended portable -> unit
 
 (** [exchange atomic_array index value] sets the value at [index] to [value], and returns
     the previous value. Raises [Invalid_argument] if [index] is out of bounds. *)
-val exchange : 'a t @ local -> int -> 'a @ contended portable -> 'a @ contended portable
+val exchange
+  : ('a : value_or_null).
+  'a t @ local -> int -> 'a @ contended portable -> 'a @ contended portable
 
 (** [compare_and_set atomic_array index ~if_phys_equal_to ~replace_with] atomically
     updates the specified [index] of the [atomic_array] to [replace_with] only if its
@@ -54,7 +57,8 @@ val exchange : 'a t @ local -> int -> 'a @ contended portable -> 'a @ contended 
     occur atomically. Returns [Set_here] if the update was successful, or [Compare_failed]
     otherwise. Raises [Invalid_argument] if [index] is out of bounds. *)
 val compare_and_set
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> int
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable
@@ -66,7 +70,8 @@ val compare_and_set
     previous value at [index], or the current (unchanged) value if the comparison failed.
     Raises [Invalid_argument] if [index] is out of bounds. *)
 val compare_exchange
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> int
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable
@@ -107,24 +112,27 @@ val decr : int t @ local -> int -> unit
 
 (** Unsafe versions that do not perform bounds checking *)
 
-val unsafe_get : 'a t @ local -> int -> 'a @ contended portable
-val unsafe_set : 'a t @ local -> int -> 'a @ contended portable -> unit
+val unsafe_get : ('a : value_or_null). 'a t @ local -> int -> 'a @ contended portable
+
+val unsafe_set
+  : ('a : value_or_null).
+  'a t @ local -> int -> 'a @ contended portable -> unit
 
 val unsafe_exchange
-  :  'a t @ local
-  -> int
-  -> 'a @ contended portable
-  -> 'a @ contended portable
+  : ('a : value_or_null).
+  'a t @ local -> int -> 'a @ contended portable -> 'a @ contended portable
 
 val unsafe_compare_and_set
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> int
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable
   -> Compare_failed_or_set_here.t
 
 val unsafe_compare_exchange
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> int
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable

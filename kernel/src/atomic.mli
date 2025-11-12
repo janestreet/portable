@@ -36,13 +36,14 @@ module Compare_failed_or_set_here : sig
   [@@deriving sexp_of ~stackify]
 end
 
-type !'a t : value mod contended portable = 'a Basement.Portable_atomic.t
+type (!'a : value_or_null) t : value mod contended portable =
+  'a Basement.Portable_atomic.t
 
 [%%rederive: type nonrec (!'a : value mod contended) t = 'a t [@@deriving sexp_of]]
 [%%rederive: type nonrec (!'a : value mod portable) t = 'a t [@@deriving of_sexp]]
 
 (** [make v] creates an atomic reference with initial value [v] *)
-val make : 'a @ contended portable -> 'a t
+val make : ('a : value_or_null). 'a @ contended portable -> 'a t
 
 (** [make_alone v] creates an atomic reference with initial value [v] which is alone on a
     cache line. It occupies 4-16x the memory of one allocated with [make v].
@@ -54,24 +55,25 @@ val make : 'a @ contended portable -> 'a t
     simultaneously becomes impossible, which can create a bottleneck. Hence, as a general
     guideline, if an atomic reference is experiencing contention, assigning it its own
     cache line may improve performance. *)
-val make_alone : 'a @ contended portable -> 'a t
+val make_alone : ('a : value_or_null). 'a @ contended portable -> 'a t
 
 (** [get r] gets the the current value of [r]. *)
-external get : ('a t[@local_opt]) -> 'a @ contended portable = "%atomic_load"
+external get
+  : ('a : value_or_null).
+  ('a t[@local_opt]) -> 'a @ contended portable
+  = "%atomic_load"
 
 (** [set r v] sets the value of [r] to [v] *)
 external set
-  :  ('a t[@local_opt])
-  -> 'a @ contended portable
-  -> unit
+  : ('a : value_or_null).
+  ('a t[@local_opt]) -> 'a @ contended portable -> unit
   @@ portable
   = "%atomic_set"
 
 (** [exchange r v] sets the value of [r] to [v], and returns the previous value *)
 external exchange
-  :  ('a t[@local_opt])
-  -> 'a @ contended portable
-  -> 'a @ contended portable
+  : ('a : value_or_null).
+  ('a t[@local_opt]) -> 'a @ contended portable -> 'a @ contended portable
   = "%atomic_exchange"
 
 (** [compare_and_set r ~if_phys_equal_to ~replace_with] sets the new value of [r] to
@@ -81,7 +83,8 @@ external exchange
     current value was not physically equal to [if_phys_equal_to] and hence the atomic
     reference was left unchanged. *)
 external compare_and_set
-  :  ('a t[@local_opt])
+  : ('a : value_or_null).
+  ('a t[@local_opt])
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable
   -> Compare_failed_or_set_here.t
@@ -92,7 +95,8 @@ external compare_and_set
     the comparison and the set occur atomically. Returns the previous value of [r], or the
     current (unchanged) value if the comparison failed. *)
 external compare_exchange
-  :  ('a t[@local_opt])
+  : ('a : value_or_null).
+  ('a t[@local_opt])
   -> if_phys_equal_to:'a @ contended
   -> replace_with:'a @ contended portable
   -> 'a @ contended portable
@@ -101,7 +105,8 @@ external compare_exchange
 (** [update t ~pure_f] atomically updates [t] to be the result of [pure_f (get t)].
     [pure_f] may be called multiple times, so should be free of side effects. *)
 val update
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
   -> unit
 
@@ -109,7 +114,8 @@ val update
     [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
     effects. Returns the old value. *)
 val update_and_return
-  :  'a t @ local
+  : ('a : value_or_null).
+  'a t @ local
   -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
   -> 'a @ contended portable
 
@@ -267,7 +273,9 @@ module Loc : sig
 end
 [@@ocaml.doc {| Atomic "locations" |}]
 
-val contents : 'a t -> 'a Basement.Stdlib_shim.Modes.Portable.t Loc.t @ contended
+val contents
+  : ('a : value_or_null mod contended).
+  'a t -> 'a Basement.Stdlib_shim.Modes.Portable.t Loc.t @ contended
 [@@ocaml.doc
   {| [contents t] is a [Loc.t] referring to the contents of the atomic ref [t] |}]
 
@@ -278,5 +286,5 @@ module Expert : sig
       This is dubiously safe, and has no explicit semantics within the OCaml memory
       model - and may do the wrong thing entirely on backends with weak memory models such
       as ARM. Use with caution! *)
-  val fenceless_get : 'a t @ local -> 'a @ contended portable
+  val fenceless_get : ('a : value_or_null). 'a t @ local -> 'a @ contended portable
 end

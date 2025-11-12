@@ -8,30 +8,41 @@ open! Base
    are done atomically, since the memory model does not allow mixing atomic and nonatomic
    operations on a single memory location *)
 module Impl : sig
-  type !'a t : value mod contended portable
+  type (!'a : value_or_null) t : value mod contended portable
 
-  val create : len:int -> 'a @ contended portable -> 'a t
-  val init : int -> f:(int -> 'a @ contended portable) @ local -> 'a t
-  val length : 'a t @ local -> int
-  val of_list : 'a list @ contended portable -> 'a t @ contended portable
-  val unsafe_get : 'a t @ local -> int -> 'a @ contended portable
-  val unsafe_set : 'a t @ local -> int -> 'a @ contended portable -> unit
+  val create : ('a : value_or_null). len:int -> 'a @ contended portable -> 'a t
+
+  val init
+    : ('a : value_or_null).
+    int -> f:(int -> 'a @ contended portable) @ local -> 'a t
+
+  val length : ('a : value_or_null). 'a t @ local -> int
+
+  val of_list
+    : ('a : value_or_null).
+    'a list @ contended portable -> 'a t @ contended portable
+
+  val unsafe_get : ('a : value_or_null). 'a t @ local -> int -> 'a @ contended portable
+
+  val unsafe_set
+    : ('a : value_or_null).
+    'a t @ local -> int -> 'a @ contended portable -> unit
 
   val unsafe_exchange
-    :  'a t @ local
-    -> int
-    -> 'a @ contended portable
-    -> 'a @ contended portable
+    : ('a : value_or_null).
+    'a t @ local -> int -> 'a @ contended portable -> 'a @ contended portable
 
   val unsafe_compare_and_set
-    :  'a t @ local
+    : ('a : value_or_null).
+    'a t @ local
     -> int
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
     -> Compare_failed_or_set_here.t
 
   val unsafe_compare_exchange
-    :  'a t @ local
+    : ('a : value_or_null).
+    'a t @ local
     -> int
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
@@ -44,15 +55,16 @@ module Impl : sig
   val unsafe_lor : int t @ local -> int -> int -> unit
   val unsafe_lxor : int t @ local -> int -> int -> unit
 end = struct
-  type 'a t : value mod contended portable = { arr : 'a portended Uniform_array.t }
+  type ('a : value_or_null) t : value mod contended portable =
+    { arr : 'a portended Uniform_array.t }
   [@@unboxed] [@@unsafe_allow_any_mode_crossing]
 
   let create ~len a = { arr = Uniform_array.create ~len { portended = a } }
   let init len ~f = { arr = Uniform_array.init len ~f:(fun i -> { portended = f i }) }
 
   external portended_wrap_list
-    :  'a list @ contended portable
-    -> 'a portended list
+    : ('a : value_or_null).
+    'a list @ contended portable -> 'a portended list
     @@ portable
     = "%identity"
 
@@ -60,30 +72,26 @@ end = struct
   let length { arr } = Uniform_array.length arr
 
   external unsafe_get
-    :  local_ 'a t
-    -> int
-    -> 'a @ contended portable
+    : ('a : value_or_null).
+    local_ 'a t -> int -> 'a @ contended portable
     @@ portable
     = "%atomic_load_field"
 
   external unsafe_set
-    :  local_ 'a t
-    -> int
-    -> 'a @ contended portable
-    -> unit
+    : ('a : value_or_null).
+    local_ 'a t -> int -> 'a @ contended portable -> unit
     @@ portable
     = "%atomic_set_field"
 
   external unsafe_exchange
-    :  local_ 'a t
-    -> int
-    -> 'a @ contended portable
-    -> 'a @ contended portable
+    : ('a : value_or_null).
+    local_ 'a t -> int -> 'a @ contended portable -> 'a @ contended portable
     @@ portable
     = "%atomic_exchange_field"
 
   external unsafe_compare_and_set
-    :  local_ 'a t
+    : ('a : value_or_null).
+    local_ 'a t
     -> int
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
@@ -92,7 +100,8 @@ end = struct
     = "%atomic_cas_field"
 
   external unsafe_compare_exchange
-    :  local_ 'a t
+    : ('a : value_or_null).
+    local_ 'a t
     -> int
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
@@ -227,12 +236,12 @@ let sexp_of_t sexp_of_a t =
   Sexp.List (List.init (length t) ~f:(fun i -> sexp_of_a (get t i)))
 ;;
 
-let t_of_sexp (type a : value mod portable) (a_of_sexp : _ -> a) sexp =
+let t_of_sexp (type a : value_or_null mod portable) (a_of_sexp : _ -> a) sexp =
   sexp |> [%of_sexp: a list] |> of_list
 ;;
 
 let%template[@mode m = (global, local)] compare
-  (type a : value mod contended)
+  (type a : value_or_null mod contended)
   compare_a
   (t1 : a t @ m)
   (t2 : a t @ m)
@@ -254,7 +263,7 @@ let%template[@mode m = (global, local)] compare
 ;;
 
 let%template[@mode m = (global, local)] equal
-  (type a : value mod contended)
+  (type a : value_or_null mod contended)
   equal_a
   (t1 : a t @ m)
   (t2 : a t @ m)
