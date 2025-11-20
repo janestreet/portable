@@ -26,7 +26,7 @@ val copy_as_padded : 'a -> 'a
 
 (** [copy_as x] by default simply returns [x]. When [~padded:true] is explicitly
     specified, returns {{!copy_as_padded} [copy_as_padded x]}. *)
-val copy_as : ?padded:bool -> 'a -> 'a
+val copy_as : ?padded:bool @ local -> 'a -> 'a
 
 (** Creates a padded array. The length of the returned array includes padding. Use
     {!length_of_padded_array} to get the unpadded length. *)

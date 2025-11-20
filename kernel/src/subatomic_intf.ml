@@ -1,19 +1,18 @@
 module Definitions = struct
   (*_ Every operation on subatomics shows up in three places:
-    1) Untemplated at top-level, non-atomic/uncontended
-    2) Templated at top-level, atomic/shared
-    3) Untemplated under [Shared], atomic/shared
+      1) Untemplated at top-level, non-atomic/uncontended
+      2) Templated at top-level, atomic/shared
+      3) Untemplated under [Shared], atomic/shared
 
-    We define the module type once, generic over these three, in order to avoid
-    duplication and keep the interfaces in sync. To make this work, we actually
-    generate 8 module types, and pick out the ones we want to use. These module
-    types vary on:
-    1) What naming to use (i.e. templated or not)
-    2) What implementation to use (i.e. atomic or not)
-    3) An extra variable for whether contents need to cross contention (only necessary
-       due to a limitation in [ppx_template] which prevents tuples from varying over
-       multiple axes arbitrarily and not being able to express complex relationships
-       between modes)
+      We define the module type once, generic over these three, in order to avoid
+      duplication and keep the interfaces in sync. To make this work, we actually generate
+      8 module types, and pick out the ones we want to use. These module types vary on:
+      1) What naming to use (i.e. templated or not)
+      2) What implementation to use (i.e. atomic or not)
+      3) An extra variable for whether contents need to cross contention (only necessary
+         due to a limitation in [ppx_template] which prevents tuples from varying over
+         multiple axes arbitrarily and not being able to express complex relationships
+         between modes)
   *)
   module type%template
     [@synchro.explicit
@@ -286,7 +285,7 @@ module type Subatomic = sig @@ portable
 
   (*_ See the Jane Street Style Guide for an explanation of [Private] submodules:
 
-    https://opensource.janestreet.com/standards/#private-submodules *)
+      https://opensource.janestreet.com/standards/#private-submodules *)
 
   module Private : sig
     include module type of struct

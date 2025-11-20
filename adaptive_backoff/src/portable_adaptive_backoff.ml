@@ -16,10 +16,10 @@ let pow2_len = if Stdlib_shim.runtime5 () then 1 lsl Random_key.num_bits else 0
 let table = Atomic_array.create ~len:pow2_len 0
 
 let[@inline] index ~random_key =
-  (* We could potentially use a bit mixing hash here, but it is not clear whether that
-     is preferable to having the user fully pick the key.  In some cases users might
-     want to have control over the indexing and deterministically avoid collisions for
-     related keys such as atomic locations within a single data structure. *)
+  (* We could potentially use a bit mixing hash here, but it is not clear whether that is
+     preferable to having the user fully pick the key. In some cases users might want to
+     have control over the indexing and deterministically avoid collisions for related
+     keys such as atomic locations within a single data structure. *)
   random_key land (pow2_len - 1)
 ;;
 

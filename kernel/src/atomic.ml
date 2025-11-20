@@ -10,8 +10,6 @@ end
 
 type ('a : value_or_null) t = 'a Basement.Portable_atomic.t
 
-let make = Basement.Portable_atomic.make
-
 let make_alone =
   if Basement.Stdlib_shim.runtime5 ()
   then Basement.Portable_atomic.make_contended
@@ -19,7 +17,11 @@ let make_alone =
     (* [caml_atomic_make_contended] is not supported on runtime4; we can just fall back to
        regular make, which is semantically correct and we shouldn't be as worried about
        false sharing on single-core applications anyway. *)
-    make
+    Basement.Portable_atomic.make
+;;
+
+let[@inline] make ?(padded = false) value =
+  if padded then make_alone value else Basement.Portable_atomic.make value
 ;;
 
 external get

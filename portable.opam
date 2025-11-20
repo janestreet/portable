@@ -14,6 +14,7 @@ depends: [
   "base"
   "base_quickcheck"
   "basement"
+  "capsule"
   "ppx_compare"
   "ppx_sexp_conv"
   "ppx_shorthand"

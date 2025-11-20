@@ -283,19 +283,22 @@ let%template[@mode m = (global, local)] equal
     loop 0 [@nontail])
 ;;
 
-let quickcheck_generator (type a : value mod portable) quickcheck_generator_a =
+let quickcheck_generator (type a : value_or_null mod portable) quickcheck_generator_a =
   let open Base_quickcheck.Export in
   [%quickcheck.generator: a list]
   |> Base_quickcheck.Generator.map ~f:(fun (l : a list) -> of_list l)
 ;;
 
-let quickcheck_observer (type a : value mod contended) quickcheck_observer_a =
+let quickcheck_observer (type a : value_or_null mod contended) quickcheck_observer_a =
   let open Base_quickcheck.Export in
   [%quickcheck.observer: a list]
   |> Base_quickcheck.Observer.unmap ~f:(fun (t : a t) -> to_list t)
 ;;
 
-let quickcheck_shrinker (type a : value mod contended portable) quickcheck_shrinker_a =
+let quickcheck_shrinker
+  (type a : value_or_null mod contended portable)
+  quickcheck_shrinker_a
+  =
   let open Base_quickcheck.Export in
   [%quickcheck.shrinker: a list]
   |> Base_quickcheck.Shrinker.map
