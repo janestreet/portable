@@ -93,12 +93,12 @@ module Definitions = struct
         is changed before the whole operation is complete, retry until success. [pure_f]
         may be called multiple times, so should be free of side effects.
 
-        - [update_and_return] performs a non-atomic read/compare/write on an uncontended
+        - [get_and_update] performs a non-atomic read/compare/write on an uncontended
           subatomic. [pure_f] still may be called multiple times due to nonportable
           threading or if [pure_f] is not actually pure.
-        - [update_and_return [@synchro atomic]] and [Shared.update_and_return] perform an
-          atomic read/compare/write on a shared subatomic. *)
-    val update_and_return
+        - [get_and_update [@synchro atomic]] and [Shared.get_and_update] perform an atomic
+          read/compare/write on a shared subatomic. *)
+    val get_and_update
       : ('a : value_or_null mod maybe_contended).
       'a t @ local maybe_shared -> pure_f:('a -> 'a) @ local -> 'a
 

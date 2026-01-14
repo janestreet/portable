@@ -115,10 +115,10 @@ val update
   -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
   -> unit
 
-(** [update_and_return t ~pure_f] atomically updates [t] to be the result of
+(** [get_and_update t ~pure_f] atomically updates [t] to be the result of
     [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
     effects. Returns the old value. *)
-val update_and_return
+val get_and_update
   : ('a : value_or_null).
   'a t @ local
   -> pure_f:('a @ contended portable -> 'a @ contended portable) @ local
@@ -176,7 +176,7 @@ module Loc : sig
       the same guidance holds: if you have an atomic mutable field containing an integer,
       you should mutate it using the atomic operations on integers ([fetch_and_add],
       [add], [sub], [logand], [logor], [logxor], [incr], or [decr]). If you have an atomic
-      mutable field of some other type, you should use [update] or [update_and_return]. |}]
+      mutable field of some other type, you should use [update] or [get_and_update]. |}]
   [@@deriving sexp_of]
 
   external get
@@ -192,8 +192,8 @@ module Loc : sig
   [@@ocaml.doc
     {| [set [%atomic.loc r.f] v] sets the value of [r.f] to [v].
 
-      Use atomic operations, [update], or [update_and_return] instead of [get]ing the
-      value, modifying it in-place, then [set]ing it |}]
+      Use atomic operations, [update], or [get_and_update] instead of [get]ing the value,
+      modifying it in-place, then [set]ing it |}]
 
   external exchange
     : ('a : value_or_null mod contended portable).
@@ -235,11 +235,11 @@ module Loc : sig
     {| [update t ~pure_f] atomically updates [t] to be the result of [pure_f (get t)].
       [pure_f] may be called multiple times, so should be free of side effects. |}]
 
-  val update_and_return
+  val get_and_update
     : ('a : value_or_null mod contended portable).
     'a t @ contended local -> pure_f:local_ ('a -> 'a) -> 'a
   [@@ocaml.doc
-    {| [update_and_return t ~pure_f] atomically updates [t] to be the result of
+    {| [get_and_update t ~pure_f] atomically updates [t] to be the result of
       [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
       effects. Returns the old value. |}]
 

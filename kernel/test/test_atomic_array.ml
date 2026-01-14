@@ -183,196 +183,251 @@ let%expect_test "[init]" =
   [%expect {| (0 10 20 30) |}]
 ;;
 
-let%quick_test "get/set roundtrip" =
-  fun (arr : int t) (values : int list) ->
-  let len = length arr in
-  let values = List.take values len in
-  List.iteri values ~f:(fun i value -> set arr i value);
-  List.iteri values ~f:(fun i expected -> require_equal (module Int) (get arr i) expected)
+let%expect_test "get/set roundtrip" =
+  let%quick_test prop (arr : int t) (values : int list) =
+    let len = length arr in
+    let values = List.take values len in
+    List.iteri values ~f:(fun i value -> set arr i value);
+    List.iteri values ~f:(fun i expected ->
+      require_equal (module Int) (get arr i) expected)
+  in
+  ()
 ;;
 
-let%quick_test "exchange returns old value" =
-  fun (arr : int t) (new_val : int) ->
-  if length arr = 0
-  then ()
-  else (
-    let index = 0 in
-    let old_val = get arr index in
-    let returned = exchange arr index new_val in
-    require_equal (module Int) returned old_val;
-    require_equal (module Int) (get arr index) new_val)
+let%expect_test "exchange returns old value" =
+  let%quick_test prop (arr : int t) (new_val : int) =
+    if length arr = 0
+    then ()
+    else (
+      let index = 0 in
+      let old_val = get arr index in
+      let returned = exchange arr index new_val in
+      require_equal (module Int) returned old_val;
+      require_equal (module Int) (get arr index) new_val)
+  in
+  ()
 ;;
 
 (* Integers that won't overflow on 32-bit platforms, such as WASM *)
 let gen_int = Base_quickcheck.Generator.int_inclusive (-1000000) 1000000
 
-let%quick_test "add operation" =
-  fun (initial : (int[@generator gen_int])) (increment : (int[@generator gen_int])) ->
-  let arr = create ~len:1 initial in
-  add arr 0 increment;
-  require_equal (module Int) (get arr 0) (initial + increment)
-;;
-
-let%quick_test "sub operation" =
-  fun (initial : (int[@generator gen_int])) (decrement : (int[@generator gen_int])) ->
-  let arr = create ~len:1 initial in
-  sub arr 0 decrement;
-  require_equal (module Int) (get arr 0) (initial - decrement)
-;;
-
-let%quick_test "fetch_and_add returns old value and updates" =
-  fun (initial : (int[@generator gen_int])) (increment : (int[@generator gen_int])) ->
-  let arr = create ~len:1 initial in
-  let old = fetch_and_add arr 0 increment in
-  require_equal (module Int) old initial;
-  require_equal (module Int) (get arr 0) (initial + increment)
-;;
-
-let%quick_test "incr/decr operations" =
-  fun (initial : (int[@generator gen_int])) ->
-  let arr = create ~len:1 initial in
-  incr arr 0;
-  let after_incr = get arr 0 in
-  decr arr 0;
-  let after_decr = get arr 0 in
-  require_equal (module Int) after_incr (initial + 1);
-  require_equal (module Int) after_decr initial
-;;
-
-let%quick_test "bitwise and operation" =
-  fun (a : int) (b : int) ->
-  let arr = create ~len:1 a in
-  logand arr 0 b;
-  require_equal (module Int) (get arr 0) (a land b)
-;;
-
-let%quick_test "bitwise or operation" =
-  fun (a : int) (b : int) ->
-  let arr = create ~len:1 a in
-  logor arr 0 b;
-  require_equal (module Int) (get arr 0) (a lor b)
-;;
-
-let%quick_test "bitwise xor operation" =
-  fun (a : int) (b : int) ->
-  let arr = create ~len:1 a in
-  logxor arr 0 b;
-  require_equal (module Int) (get arr 0) (a lxor b)
-;;
-
-let%quick_test "compare_and_set success" =
-  fun (initial : int) (new_val : int) ->
-  let arr = create ~len:1 initial in
-  let result = compare_and_set arr 0 ~if_phys_equal_to:initial ~replace_with:new_val in
-  match result with
-  | Set_here -> require_equal (module Int) (get arr 0) new_val
-  | Compare_failed -> require false
-;;
-
-let%quick_test "compare_and_set failure" =
-  fun (initial : int) (wrong_expected : int) (new_val : int) ->
-  (* Ensure wrong_expected is actually wrong *)
-  if Int.equal initial wrong_expected
-  then ()
-  else (
+let%expect_test "add operation" =
+  let%quick_test prop
+    (initial : (int[@generator gen_int]))
+    (increment : (int[@generator gen_int]))
+    =
     let arr = create ~len:1 initial in
-    let result =
-      compare_and_set arr 0 ~if_phys_equal_to:wrong_expected ~replace_with:new_val
-    in
-    match result with
-    | Compare_failed ->
-      require_equal (module Int) (get arr 0) initial (* Value unchanged *)
-    | Set_here -> require false)
+    add arr 0 increment;
+    require_equal (module Int) (get arr 0) (initial + increment)
+  in
+  ()
 ;;
 
-let%quick_test "compare_exchange success" =
-  fun (initial : int) (new_val : int) ->
-  let arr = create ~len:1 initial in
-  let old = compare_exchange arr 0 ~if_phys_equal_to:initial ~replace_with:new_val in
-  require_equal (module Int) old initial;
-  require_equal (module Int) (get arr 0) new_val
-;;
-
-let%quick_test "compare_exchange failure" =
-  fun (initial : int) (wrong_expected : int) (new_val : int) ->
-  if Int.equal initial wrong_expected
-  then ()
-  else (
+let%expect_test "sub operation" =
+  let%quick_test prop
+    (initial : (int[@generator gen_int]))
+    (decrement : (int[@generator gen_int]))
+    =
     let arr = create ~len:1 initial in
-    let old =
-      compare_exchange arr 0 ~if_phys_equal_to:wrong_expected ~replace_with:new_val
-    in
+    sub arr 0 decrement;
+    require_equal (module Int) (get arr 0) (initial - decrement)
+  in
+  ()
+;;
+
+let%expect_test "fetch_and_add returns old value and updates" =
+  let%quick_test prop
+    (initial : (int[@generator gen_int]))
+    (increment : (int[@generator gen_int]))
+    =
+    let arr = create ~len:1 initial in
+    let old = fetch_and_add arr 0 increment in
     require_equal (module Int) old initial;
-    require_equal (module Int) (get arr 0) initial)
+    require_equal (module Int) (get arr 0) (initial + increment)
+  in
+  ()
 ;;
 
-let%quick_test "init creates correct values" =
-  fun (values : int list) ->
-  if List.is_empty values
-  then ()
-  else (
-    let len = List.length values in
-    let arr = init len ~f:(fun i -> i * 2) in
-    List.iter (List.range 0 len) ~f:(fun i ->
-      require_equal (module Int) (get arr i) (i * 2)))
+let%expect_test "incr/decr operations" =
+  let%quick_test prop (initial : (int[@generator gen_int])) =
+    let arr = create ~len:1 initial in
+    incr arr 0;
+    let after_incr = get arr 0 in
+    decr arr 0;
+    let after_decr = get arr 0 in
+    require_equal (module Int) after_incr (initial + 1);
+    require_equal (module Int) after_decr initial
+  in
+  ()
 ;;
 
-let%quick_test "sexp roundtrip" =
-  fun (arr : int t) ->
-  let len = length arr in
-  let sexp = sexp_of_t Int.sexp_of_t arr in
-  let arr2 = t_of_sexp Int.t_of_sexp sexp in
-  require_equal (module Int) (length arr) (length arr2);
-  for i = 0 to len - 1 do
-    require_equal (module Int) (get arr i) (get arr2 i)
-  done
+let%expect_test "bitwise and operation" =
+  let%quick_test prop (a : int) (b : int) =
+    let arr = create ~len:1 a in
+    logand arr 0 b;
+    require_equal (module Int) (get arr 0) (a land b)
+  in
+  ()
 ;;
 
-let%quick_test "compare reflexive" =
-  fun (arr : int t) ->
-  let cmp = compare Int.compare arr arr in
-  require_equal (module Int) cmp 0
+let%expect_test "bitwise or operation" =
+  let%quick_test prop (a : int) (b : int) =
+    let arr = create ~len:1 a in
+    logor arr 0 b;
+    require_equal (module Int) (get arr 0) (a lor b)
+  in
+  ()
 ;;
 
-let%quick_test "compare antisymmetric" =
-  fun (arr1 : int t) (arr2 : int t) ->
-  let cmp12 = compare Int.compare arr1 arr2 in
-  let cmp21 = compare Int.compare arr2 arr1 in
-  require_equal (module Int) (Int.compare cmp12 0) (Int.compare 0 cmp21)
+let%expect_test "bitwise xor operation" =
+  let%quick_test prop (a : int) (b : int) =
+    let arr = create ~len:1 a in
+    logxor arr 0 b;
+    require_equal (module Int) (get arr 0) (a lxor b)
+  in
+  ()
 ;;
 
-let%quick_test "compare length ordering" =
-  fun (arr1 : int t) (arr2 : int t) ->
-  let len1 = length arr1 in
-  let len2 = length arr2 in
-  let cmp = compare Int.compare arr1 arr2 in
-  let len_cmp = Int.compare len1 len2 in
-  if len_cmp <> 0
-  then require_equal (module Int) (Int.compare cmp 0) (Int.compare len_cmp 0)
+let%expect_test "compare_and_set success" =
+  let%quick_test prop (initial : int) (new_val : int) =
+    let arr = create ~len:1 initial in
+    let result = compare_and_set arr 0 ~if_phys_equal_to:initial ~replace_with:new_val in
+    match result with
+    | Set_here -> require_equal (module Int) (get arr 0) new_val
+    | Compare_failed -> require false
+  in
+  ()
 ;;
 
-let%quick_test "equal reflexive" = fun (arr : int t) -> require (equal Int.equal arr arr)
-
-let%quick_test "equal symmetric" =
-  fun (arr1 : int t) (arr2 : int t) ->
-  let eq12 = equal Int.equal arr1 arr2 in
-  let eq21 = equal Int.equal arr2 arr1 in
-  require_equal (module Bool) eq12 eq21
+let%expect_test "compare_and_set failure" =
+  let%quick_test prop (initial : int) (wrong_expected : int) (new_val : int) =
+    (* Ensure wrong_expected is actually wrong *)
+    if Int.equal initial wrong_expected
+    then ()
+    else (
+      let arr = create ~len:1 initial in
+      let result =
+        compare_and_set arr 0 ~if_phys_equal_to:wrong_expected ~replace_with:new_val
+      in
+      match result with
+      | Compare_failed ->
+        require_equal (module Int) (get arr 0) initial (* Value unchanged *)
+      | Set_here -> require false)
+  in
+  ()
 ;;
 
-let%quick_test "equal implies compare zero" =
-  fun (arr1 : int t) (arr2 : int t) ->
-  let eq = equal Int.equal arr1 arr2 in
-  let cmp = compare Int.compare arr1 arr2 in
-  if eq then require_equal (module Int) cmp 0
+let%expect_test "compare_exchange success" =
+  let%quick_test prop (initial : int) (new_val : int) =
+    let arr = create ~len:1 initial in
+    let old = compare_exchange arr 0 ~if_phys_equal_to:initial ~replace_with:new_val in
+    require_equal (module Int) old initial;
+    require_equal (module Int) (get arr 0) new_val
+  in
+  ()
 ;;
 
-let%quick_test "equal different lengths" =
-  fun (arr : int t) (extra_val : int) ->
-  if length arr = 0
-  then ()
-  else (
+let%expect_test "compare_exchange failure" =
+  let%quick_test prop (initial : int) (wrong_expected : int) (new_val : int) =
+    if Int.equal initial wrong_expected
+    then ()
+    else (
+      let arr = create ~len:1 initial in
+      let old =
+        compare_exchange arr 0 ~if_phys_equal_to:wrong_expected ~replace_with:new_val
+      in
+      require_equal (module Int) old initial;
+      require_equal (module Int) (get arr 0) initial)
+  in
+  ()
+;;
+
+let%expect_test "init creates correct values" =
+  let%quick_test prop (values : int list) =
+    if List.is_empty values
+    then ()
+    else (
+      let len = List.length values in
+      let arr = init len ~f:(fun i -> i * 2) in
+      List.iter (List.range 0 len) ~f:(fun i ->
+        require_equal (module Int) (get arr i) (i * 2)))
+  in
+  ()
+;;
+
+let%expect_test "sexp roundtrip" =
+  let%quick_test prop (arr : int t) =
     let len = length arr in
-    let arr2 = init (len + 1) ~f:(fun i -> if i < len then get arr i else extra_val) in
-    require (not (equal Int.equal arr arr2)))
+    let sexp = sexp_of_t Int.sexp_of_t arr in
+    let arr2 = t_of_sexp Int.t_of_sexp sexp in
+    require_equal (module Int) (length arr) (length arr2);
+    for i = 0 to len - 1 do
+      require_equal (module Int) (get arr i) (get arr2 i)
+    done
+  in
+  ()
+;;
+
+let%expect_test "compare reflexive" =
+  let%quick_test prop (arr : int t) =
+    let cmp = compare Int.compare arr arr in
+    require_equal (module Int) cmp 0
+  in
+  ()
+;;
+
+let%expect_test "compare antisymmetric" =
+  let%quick_test prop (arr1 : int t) (arr2 : int t) =
+    let cmp12 = compare Int.compare arr1 arr2 in
+    let cmp21 = compare Int.compare arr2 arr1 in
+    require_equal (module Int) (Int.compare cmp12 0) (Int.compare 0 cmp21)
+  in
+  ()
+;;
+
+let%expect_test "compare length ordering" =
+  let%quick_test prop (arr1 : int t) (arr2 : int t) =
+    let len1 = length arr1 in
+    let len2 = length arr2 in
+    let cmp = compare Int.compare arr1 arr2 in
+    let len_cmp = Int.compare len1 len2 in
+    if len_cmp <> 0
+    then require_equal (module Int) (Int.compare cmp 0) (Int.compare len_cmp 0)
+  in
+  ()
+;;
+
+let%expect_test "equal reflexive" =
+  let%quick_test prop (arr : int t) = require (equal Int.equal arr arr) in
+  ()
+;;
+
+let%expect_test "equal symmetric" =
+  let%quick_test prop (arr1 : int t) (arr2 : int t) =
+    let eq12 = equal Int.equal arr1 arr2 in
+    let eq21 = equal Int.equal arr2 arr1 in
+    require_equal (module Bool) eq12 eq21
+  in
+  ()
+;;
+
+let%expect_test "equal implies compare zero" =
+  let%quick_test prop (arr1 : int t) (arr2 : int t) =
+    let eq = equal Int.equal arr1 arr2 in
+    let cmp = compare Int.compare arr1 arr2 in
+    if eq then require_equal (module Int) cmp 0
+  in
+  ()
+;;
+
+let%expect_test "equal different lengths" =
+  let%quick_test prop (arr : int t) (extra_val : int) =
+    if length arr = 0
+    then ()
+    else (
+      let len = length arr in
+      let arr2 = init (len + 1) ~f:(fun i -> if i < len then get arr i else extra_val) in
+      require (not (equal Int.equal arr arr2)))
+  in
+  ()
 ;;

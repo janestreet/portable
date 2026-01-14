@@ -60,7 +60,7 @@ external compare_exchange
   @@ portable
   = "%atomic_compare_exchange"
 
-let[@inline] update_and_return t ~pure_f =
+let[@inline] get_and_update t ~pure_f =
   let[@inline] rec aux backoff =
     let old = get t in
     let new_ = pure_f old in
@@ -72,7 +72,7 @@ let[@inline] update_and_return t ~pure_f =
 ;;
 
 let[@inline] update (type a : value_or_null) (t : a t) ~pure_f =
-  Basement.Stdlib_shim.ignore_contended (update_and_return t ~pure_f : a)
+  Basement.Stdlib_shim.ignore_contended (get_and_update t ~pure_f : a)
 ;;
 
 external fetch_and_add
@@ -132,7 +132,7 @@ module Loc = struct
     @@ portable
     = "%atomic_compare_exchange_loc"
 
-  let update_and_return t ~pure_f =
+  let get_and_update t ~pure_f =
     let rec aux backoff =
       let old = get t in
       let new_ = pure_f old in
@@ -145,8 +145,7 @@ module Loc = struct
   [@@inline]
   ;;
 
-  let update t ~pure_f =
-    Basement.Stdlib_shim.ignore_contended (update_and_return t ~pure_f)
+  let update t ~pure_f = Basement.Stdlib_shim.ignore_contended (get_and_update t ~pure_f)
   [@@inline]
   ;;
 
