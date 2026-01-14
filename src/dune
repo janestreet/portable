@@ -1,5 +1,5 @@
 (library
  (name portable)
  (public_name portable)
- (libraries basement portable_kernel)
+ (libraries basement capsule portable_kernel)
  (preprocess no_preprocessing))

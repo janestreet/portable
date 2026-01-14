@@ -5,7 +5,7 @@ open Expect_test_helpers_base
 module Barrier = Portable_test_helpers.Barrier
 
 let%expect_test "simple barrier protects a ref write" =
-  let%with.tilde.stack conc = Concurrent_in_thread.with_concurrent Terminator.never in
+  let%with.tilde.stack conc = Concurrent_in_thread.with_blocking Terminator.never in
   let%with.tilde.stack s = Concurrent.with_scope conc () in
   let i = Atomic.make 0 in
   let result1 = Atomic.make (-1) in
@@ -30,8 +30,8 @@ let%expect_test "simple barrier protects a ref write" =
     (("Atomic.get result1" 2)
      ("Atomic.get result2" 2))
     |}];
-  (* We can re-use the same barrier now that all of the previous domains
-     have passed the barrier. *)
+  (* We can re-use the same barrier now that all of the previous domains have passed the
+     barrier. *)
   Concurrent.spawn s ~f:(fun _ _ _ -> f result1);
   Concurrent.spawn s ~f:(fun _ _ _ -> f result2);
   Barrier.await done_barrier;

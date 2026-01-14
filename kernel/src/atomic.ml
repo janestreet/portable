@@ -10,8 +10,6 @@ end
 
 type 'a t = 'a Basement.Portable_atomic.t
 
-let make = Basement.Portable_atomic.make
-
 let make_alone =
   if Basement.Stdlib_shim.runtime5 ()
   then Basement.Portable_atomic.make_contended
@@ -19,7 +17,11 @@ let make_alone =
     (* [caml_atomic_make_contended] is not supported on runtime4; we can just fall back to
        regular make, which is semantically correct and we shouldn't be as worried about
        false sharing on single-core applications anyway. *)
-    make
+    Basement.Portable_atomic.make
+;;
+
+let[@inline] make ?(padded = false) value =
+  if padded then make_alone value else Basement.Portable_atomic.make value
 ;;
 
 external get : 'a. ('a t[@local_opt]) -> 'a = "%atomic_load"
@@ -39,7 +41,7 @@ external compare_exchange
   ('a t[@local_opt]) -> if_phys_equal_to:'a -> replace_with:'a -> 'a
   = "caml_atomic_compare_exchange_stub"
 
-let[@inline] update_and_return t ~pure_f =
+let[@inline] get_and_update t ~pure_f =
   let[@inline] rec aux backoff =
     let old = get t in
     let new_ = pure_f old in
@@ -51,7 +53,7 @@ let[@inline] update_and_return t ~pure_f =
 ;;
 
 let[@inline] update (type a) (t : a t) ~pure_f =
-  Basement.Stdlib_shim.ignore_contended (update_and_return t ~pure_f : a)
+  Basement.Stdlib_shim.ignore_contended (get_and_update t ~pure_f : a)
 ;;
 
 external fetch_and_add : (int t[@local_opt]) -> int -> int = "%atomic_fetch_add"

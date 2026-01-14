@@ -22,8 +22,8 @@ let create capacity =
 
 let capacity t = t.capacity
 
-(* NOTE: we assume no more than [capacity] domains call [await] at a time.
-   This is documented in the mli file. *)
+(* NOTE: we assume no more than [capacity] domains call [await] at a time. This is
+   documented in the mli file. *)
 
 let await { waiters; capacity; passed } =
   (* Awaiting a barrier progresses in two stages:
@@ -53,10 +53,10 @@ let await { waiters; capacity; passed } =
   while Atomic.get waiters < capacity do
     Basement.Stdlib_shim.Domain.cpu_relax ()
     (* When each domain now exits from [await], we're back to the initial state setup by
-     [create]:
+       [create]:
 
-     - [passed] is 0
-     - [waiters] is equal to [capacity]
+       - [passed] is 0
+       - [waiters] is equal to [capacity]
     *)
   done
 ;;

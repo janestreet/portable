@@ -1,19 +1,18 @@
 module Definitions = struct
   (*_ Every operation on subatomics shows up in three places:
-    1) Untemplated at top-level, non-atomic/uncontended
-    2) Templated at top-level, atomic/shared
-    3) Untemplated under [Shared], atomic/shared
+      1) Untemplated at top-level, non-atomic/uncontended
+      2) Templated at top-level, atomic/shared
+      3) Untemplated under [Shared], atomic/shared
 
-    We define the module type once, generic over these three, in order to avoid
-    duplication and keep the interfaces in sync. To make this work, we actually
-    generate 8 module types, and pick out the ones we want to use. These module
-    types vary on:
-    1) What naming to use (i.e. templated or not)
-    2) What implementation to use (i.e. atomic or not)
-    3) An extra variable for whether contents need to cross contention (only necessary
-       due to a limitation in [ppx_template] which prevents tuples from varying over
-       multiple axes arbitrarily and not being able to express complex relationships
-       between modes)
+      We define the module type once, generic over these three, in order to avoid
+      duplication and keep the interfaces in sync. To make this work, we actually generate
+      8 module types, and pick out the ones we want to use. These module types vary on:
+      1) What naming to use (i.e. templated or not)
+      2) What implementation to use (i.e. atomic or not)
+      3) An extra variable for whether contents need to cross contention (only necessary
+         due to a limitation in [ppx_template] which prevents tuples from varying over
+         multiple axes arbitrarily and not being able to express complex relationships
+         between modes)
   *)
   module type%template
     [@synchro.explicit
@@ -86,12 +85,12 @@ module Definitions = struct
         is changed before the whole operation is complete, retry until success. [pure_f]
         may be called multiple times, so should be free of side effects.
 
-        - [update_and_return] performs a non-atomic read/compare/write on an uncontended
+        - [get_and_update] performs a non-atomic read/compare/write on an uncontended
           subatomic. [pure_f] still may be called multiple times due to nonportable
           threading or if [pure_f] is not actually pure.
-        - [update_and_return [@synchro atomic]] and [Shared.update_and_return] perform an
-          atomic read/compare/write on a shared subatomic. *)
-    val update_and_return : 'a. 'a t -> pure_f:('a -> 'a) -> 'a
+        - [get_and_update [@synchro atomic]] and [Shared.get_and_update] perform an atomic
+          read/compare/write on a shared subatomic. *)
+    val get_and_update : 'a. 'a t -> pure_f:('a -> 'a) -> 'a
 
     (** Increments the value of a subatomic by the given value, and return the previous
         value (before the increment).
@@ -213,7 +212,7 @@ module type Subatomic = sig
 
   (*_ See the Jane Street Style Guide for an explanation of [Private] submodules:
 
-    https://opensource.janestreet.com/standards/#private-submodules *)
+      https://opensource.janestreet.com/standards/#private-submodules *)
 
   module Private : sig
     include module type of struct

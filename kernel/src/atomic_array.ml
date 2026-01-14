@@ -3,8 +3,8 @@ module Atomic_ = Atomic
 open! Base
 module Atomic = Atomic_
 
-(* This module encapsulates the fact that ['a Atomic_array] is actually represented as ['a
-   Uniform_array.t] internally. All the rest of the functions in this module are
+(* This module encapsulates the fact that ['a Atomic_array] is actually represented as
+   ['a Uniform_array.t] internally. All the rest of the functions in this module are
    guaranteed to only be implemented in terms of this Impl module, to avoid accidentally
    relying on the internal representation. This ensures, importantly, that all accesses
    are done atomically, since the memory model does not allow mixing atomic and nonatomic

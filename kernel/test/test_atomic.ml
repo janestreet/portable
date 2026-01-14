@@ -55,9 +55,9 @@ let%expect_test "compare_and_set with or_null" =
   [%expect {| ((set_here Set_here) (current_value ())) |}]
 ;;
 
-let%expect_test "update_and_return" =
+let%expect_test "get_and_update" =
   let atomic = Atomic.make 1 in
-  let result = Atomic.update_and_return atomic ~pure_f:(fun x -> x + 1) in
+  let result = Atomic.get_and_update atomic ~pure_f:(fun x -> x + 1) in
   let new_value = Atomic.get atomic in
   print_s [%message (result : int) (new_value : int)];
   [%expect

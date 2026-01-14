@@ -39,20 +39,23 @@ type !'a t = 'a Basement.Portable_atomic.t
 [%%rederive: type nonrec !'a t = 'a t [@@deriving sexp_of]]
 [%%rederive: type nonrec !'a t = 'a t [@@deriving of_sexp]]
 
-(** [make v] creates an atomic reference with initial value [v] *)
-val make : 'a. 'a -> 'a t
+(** [make v] creates an atomic reference with initial value [v].
 
-(** [make_alone v] creates an atomic reference with initial value [v] which is alone on a
-    cache line. It occupies 4-16x the memory of one allocated with [make v].
+    The optional [padded] argument specifies whether or not the atomic reference should be
+    padded to cache line size to avoid false sharing. When padded, i.e. [~padded:true], an
+    atomic reference occupies 4-16x the memory of one allocated without padding. By
+    default [padded] is [false].
 
-    The primary purpose of [make_alone] is to prevent performance degradation caused by
-    false sharing. When a CPU performs an atomic operation, it temporarily takes ownership
-    of the entire cache line containing the atomic reference. If multiple atomic
-    references share the same cache line, modifying these disjoint memory regions
-    simultaneously becomes impossible, which can create a bottleneck. Hence, as a general
-    guideline, if an atomic reference is experiencing contention, assigning it its own
-    cache line may improve performance. *)
-val make_alone : 'a. 'a -> 'a t
+    When a CPU core attempts to perform a write, it takes exclusive ownership of the
+    entire cache line containing the memory location being written to. This means that
+    accessing disjoint memory locations sharing a cache line when at least one of those
+    accesses is a write is impossible. This is called false sharing. The cache coherence
+    traffic due to repeated invalidations can quickly become very expensive.
+
+    As a general guideline, it is typically beneficial to pad data structures that live
+    for a long time and are frequently accessed by multiple CPU cores and frequently
+    written to by at least one CPU core. *)
+val make : 'a. ?padded:bool (** default:[false] *) -> 'a -> 'a t
 
 (** [get r] gets the the current value of [r]. *)
 external get : 'a. ('a t[@local_opt]) -> 'a = "%atomic_load"
@@ -90,10 +93,10 @@ external compare_exchange
     [pure_f] may be called multiple times, so should be free of side effects. *)
 val update : 'a. 'a t -> pure_f:('a -> 'a) -> unit
 
-(** [update_and_return t ~pure_f] atomically updates [t] to be the result of
+(** [get_and_update t ~pure_f] atomically updates [t] to be the result of
     [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
     effects. Returns the old value. *)
-val update_and_return : 'a. 'a t -> pure_f:('a -> 'a) -> 'a
+val get_and_update : 'a. 'a t -> pure_f:('a -> 'a) -> 'a
 
 (** [fetch_and_add r n] atomically increments the value of [r] by [n], and returns the
     previous value (before the increment). *)

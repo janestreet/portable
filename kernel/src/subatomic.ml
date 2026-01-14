@@ -67,16 +67,16 @@ struct
       old_value
     ;;
 
-    let rec update_and_return t ~pure_f =
+    let rec get_and_update t ~pure_f =
       let old_value = get t in
       let new_value = pure_f old_value in
       match compare_and_set t ~if_phys_equal_to:old_value ~replace_with:new_value with
       | Set_here -> old_value
-      | Compare_failed -> update_and_return t ~pure_f
+      | Compare_failed -> get_and_update t ~pure_f
     ;;
 
     let update (type a) (t : a t) ~pure_f =
-      let _ : a = update_and_return t ~pure_f in
+      let _ : a = get_and_update t ~pure_f in
       ()
     ;;
 
@@ -110,7 +110,7 @@ struct
       compare_exchange t if_phys_equal_to replace_with
     ;;
 
-    let[@inline] update_and_return t ~pure_f =
+    let[@inline] get_and_update t ~pure_f =
       let[@inline] rec aux backoff =
         let old = get t in
         let new_ = pure_f old in
@@ -122,7 +122,7 @@ struct
     ;;
 
     let[@inline] update t ~pure_f =
-      Basement.Stdlib_shim.ignore_contended (update_and_return t ~pure_f)
+      Basement.Stdlib_shim.ignore_contended (get_and_update t ~pure_f)
     ;;
   end
 
@@ -137,7 +137,7 @@ struct
     let compare_and_set = compare_and_set
     let compare_exchange = compare_exchange
     let update = update
-    let update_and_return = update_and_return
+    let get_and_update = get_and_update
     let fetch_and_add = fetch_and_add
     let add = add
     let sub = sub

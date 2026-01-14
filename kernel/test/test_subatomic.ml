@@ -128,11 +128,11 @@ end = struct
   ;;
 
   let update = (update [@synchro name])
-  let update_and_return = (update_and_return [@synchro name])
+  let get_and_update = (get_and_update [@synchro name])
 
-  let%expect_test "update and update_and_return" =
+  let%expect_test "update and get_and_update" =
     let t = Impl.make_example 1 in
-    let result = update_and_return t ~pure_f:(fun x -> x + 1) in
+    let result = get_and_update t ~pure_f:(fun x -> x + 1) in
     let new_value = get t in
     print_s [%message (result : int) (new_value : int)];
     [%expect
@@ -143,7 +143,7 @@ end = struct
     (* no allocation *)
     require_no_allocation (fun () ->
       update t ~pure_f:(fun x -> x + 1);
-      ignore (update_and_return t ~pure_f:(fun x -> x + 1) : int));
+      ignore (get_and_update t ~pure_f:(fun x -> x + 1) : int));
     [%expect {| |}]
   ;;
 
@@ -220,7 +220,7 @@ end = struct
   let compare_and_set = compare_and_set
   let compare_exchange = compare_exchange
   let update = update
-  let update_and_return = update_and_return
+  let get_and_update = get_and_update
   let fetch_and_add = fetch_and_add
   let add = add
   let sub = sub
