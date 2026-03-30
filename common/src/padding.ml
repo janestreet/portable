@@ -29,18 +29,3 @@ let copy_as ?padded x =
   | None | Some false -> x
   | Some true -> copy_as_padded x
 ;;
-
-let make_padded_array n x =
-  let a = Array.make (n + num_padding_words) x in
-  if Obj.is_block (Obj.repr x)
-  then
-    Array.fill
-      a
-      n
-      num_padding_words
-      (if Obj.tag (Obj.repr x) == Obj.double_tag then Obj.magic 0.0 else Obj.magic ());
-  a
-;;
-
-let[@inline] length_of_padded_array x = Array.length x - num_padding_words
-let[@inline] length_of_padded_array_minus_1 x = Array.length x - (num_padding_words + 1)

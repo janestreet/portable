@@ -178,7 +178,7 @@ module type Subatomic = sig
 
   type !'a t = 'a Basement.Subatomic.t
 
-  [%%rederive: type nonrec !'a t = 'a t [@@deriving equal, sexp_of]]
+  [%%rederive: type nonrec !'a t = 'a t [@@deriving equal ~localize, sexp_of]]
   [%%rederive: type nonrec !'a t = 'a t [@@deriving of_sexp]]
 
   (** Create a subatomic reference; has the same codegen as constructing an [Atomic.t] or

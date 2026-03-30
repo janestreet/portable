@@ -119,9 +119,11 @@ external logxor : (int t[@local_opt]) -> int -> unit = "caml_atomic_lxor_stub"
 
 (** [incr r] atomically increments the value of [r] by [1]. *)
 val incr : int t -> unit
+[@@zero_alloc]
 
 (** [decr r] atomically decrements the value of [r] by [1]. *)
 val decr : int t -> unit
+[@@zero_alloc]
 
 module Expert : sig
   (** Load the value referenced by the given atomic, without using any compiler or
@@ -131,4 +133,5 @@ module Expert : sig
       model - and may do the wrong thing entirely on backends with weak memory models such
       as ARM. Use with caution! *)
   val fenceless_get : 'a. 'a t -> 'a
+  [@@zero_alloc]
 end

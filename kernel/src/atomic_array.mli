@@ -30,18 +30,22 @@ val to_list : 'a. 'a t -> 'a list
 
 (** [length atomic_array] returns the length of the [atomic_array]. *)
 val length : 'a. 'a t -> int
+[@@zero_alloc]
 
 (** [get atomic_array index] reads and returns the value at the specified [index] of the
     [atomic_array]. Raises [Invalid_argument] if [index] is out of bounds. *)
 val get : 'a. 'a t -> int -> 'a
+[@@zero_alloc]
 
 (** [set atomic_array index value] writes the given [value] to the specified [index] of
     the [atomic_array]. Raises [Invalid_argument] if [index] is out of bounds. *)
 val set : 'a. 'a t -> int -> 'a -> unit
+[@@zero_alloc]
 
 (** [exchange atomic_array index value] sets the value at [index] to [value], and returns
     the previous value. Raises [Invalid_argument] if [index] is out of bounds. *)
 val exchange : 'a. 'a t -> int -> 'a -> 'a
+[@@zero_alloc]
 
 (** [compare_and_set atomic_array index ~if_phys_equal_to ~replace_with] atomically
     updates the specified [index] of the [atomic_array] to [replace_with] only if its
@@ -51,6 +55,7 @@ val exchange : 'a. 'a t -> int -> 'a -> 'a
 val compare_and_set
   : 'a.
   'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> Compare_failed_or_set_here.t
+[@@zero_alloc]
 
 (** [compare_exchange atomic_array index ~if_phys_equal_to ~replace_with] sets the new
     value at [index] to [replace_with] only if its current value is physically equal to
@@ -58,57 +63,84 @@ val compare_and_set
     previous value at [index], or the current (unchanged) value if the comparison failed.
     Raises [Invalid_argument] if [index] is out of bounds. *)
 val compare_exchange : 'a. 'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> 'a
+[@@zero_alloc]
+
+(** [update atomic_array index ~pure_f] atomically updates the value at [index] to be the
+    result of [pure_f (get t)]. [pure_f] may be called multiple times, so should be free
+    of side effects.
+
+    Raises [Invalid_argument] if [index] is out of bounds. *)
+val update : 'a. 'a t -> int -> pure_f:('a -> 'a) -> unit
+
+(** [get_and_update atomic_array index ~pure_f] atomically updates the value at [index] to
+    be the result of [pure_f (get t)]. [pure_f] may be called multiple times, so should be
+    free of side effects. Returns the old value.
+
+    Raises [Invalid_argument] if [index] is out of bounds. *)
+val get_and_update : 'a. 'a t -> int -> pure_f:('a -> 'a) -> 'a
 
 (** [fetch_and_add atomic_array index n] atomically increments the value at [index] by
     [n], and returns the previous value (before the increment). Raises [Invalid_argument]
     if [index] is out of bounds. *)
 val fetch_and_add : int t -> int -> int -> int
+[@@zero_alloc]
 
 (** [add atomic_array index i] atomically adds [i] to the value at [index]. Raises
     [Invalid_argument] if [index] is out of bounds. *)
 val add : int t -> int -> int -> unit
+[@@zero_alloc]
 
 (** [sub atomic_array index i] atomically subtracts [i] from the value at [index]. Raises
     [Invalid_argument] if [index] is out of bounds. *)
 val sub : int t -> int -> int -> unit
+[@@zero_alloc]
 
 (** [logand atomic_array index i] atomically bitwise-ands [i] onto the value at [index].
     Raises [Invalid_argument] if [index] is out of bounds. *)
 val logand : int t -> int -> int -> unit
+[@@zero_alloc]
 
 (** [logor atomic_array index i] atomically bitwise-ors [i] onto the value at [index].
     Raises [Invalid_argument] if [index] is out of bounds. *)
 val logor : int t -> int -> int -> unit
+[@@zero_alloc]
 
 (** [logxor atomic_array index i] atomically bitwise-xors [i] onto the value at [index].
     Raises [Invalid_argument] if [index] is out of bounds. *)
 val logxor : int t -> int -> int -> unit
+[@@zero_alloc]
 
 (** [incr atomic_array index] atomically increments the value at [index] by [1]. Raises
     [Invalid_argument] if [index] is out of bounds. *)
 val incr : int t -> int -> unit
+[@@zero_alloc]
 
 (** [decr atomic_array index] atomically decrements the value at [index] by [1]. Raises
     [Invalid_argument] if [index] is out of bounds. *)
 val decr : int t -> int -> unit
+[@@zero_alloc]
 
 (** Unsafe versions that do not perform bounds checking *)
 
-val unsafe_get : 'a. 'a t -> int -> 'a
-val unsafe_set : 'a. 'a t -> int -> 'a -> unit
-val unsafe_exchange : 'a. 'a t -> int -> 'a -> 'a
+val unsafe_get : 'a. 'a t -> int -> 'a [@@zero_alloc]
+val unsafe_set : 'a. 'a t -> int -> 'a -> unit [@@zero_alloc]
+val unsafe_exchange : 'a. 'a t -> int -> 'a -> 'a [@@zero_alloc]
 
 val unsafe_compare_and_set
   : 'a.
   'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> Compare_failed_or_set_here.t
+[@@zero_alloc]
 
 val unsafe_compare_exchange
   : 'a.
   'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> 'a
+[@@zero_alloc]
 
-val unsafe_fetch_and_add : int t -> int -> int -> int
-val unsafe_add : int t -> int -> int -> unit
-val unsafe_sub : int t -> int -> int -> unit
-val unsafe_land : int t -> int -> int -> unit
-val unsafe_lor : int t -> int -> int -> unit
-val unsafe_lxor : int t -> int -> int -> unit
+val unsafe_update : 'a. 'a t -> int -> pure_f:('a -> 'a) -> unit
+val unsafe_get_and_update : 'a. 'a t -> int -> pure_f:('a -> 'a) -> 'a
+val unsafe_fetch_and_add : int t -> int -> int -> int [@@zero_alloc]
+val unsafe_add : int t -> int -> int -> unit [@@zero_alloc]
+val unsafe_sub : int t -> int -> int -> unit [@@zero_alloc]
+val unsafe_land : int t -> int -> int -> unit [@@zero_alloc]
+val unsafe_lor : int t -> int -> int -> unit [@@zero_alloc]
+val unsafe_lxor : int t -> int -> int -> unit [@@zero_alloc]

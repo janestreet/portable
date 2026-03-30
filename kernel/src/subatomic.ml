@@ -154,7 +154,10 @@ end
 
 include Make (Basement.Subatomic)
 
-let equal equal_a t1 t2 = equal_a (get t1) (get t2)
+let%template[@mode m = (local, global)] equal equal_a (t1 : _ t) (t2 : _ t) =
+  equal_a (get t1) (get t2)
+;;
+
 let sexp_of_t sexp_of_a t = sexp_of_a (get t)
 let t_of_sexp a_of_sexp sexp = make (a_of_sexp sexp)
 

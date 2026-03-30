@@ -14,26 +14,28 @@ module Impl : sig
 
   val create : 'a. len:int -> 'a -> 'a t
   val init : 'a. int -> f:(int -> 'a) -> 'a t
-  val length : 'a. 'a t -> int
+  val length : 'a. 'a t -> int [@@zero_alloc]
   val of_list : 'a. 'a list -> 'a t
-  val unsafe_get : 'a. 'a t -> int -> 'a
-  val unsafe_set : 'a. 'a t -> int -> 'a -> unit
-  val unsafe_exchange : 'a. 'a t -> int -> 'a -> 'a
+  val unsafe_get : 'a. 'a t -> int -> 'a [@@zero_alloc]
+  val unsafe_set : 'a. 'a t -> int -> 'a -> unit [@@zero_alloc]
+  val unsafe_exchange : 'a. 'a t -> int -> 'a -> 'a [@@zero_alloc]
 
   val unsafe_compare_and_set
     : 'a.
     'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> Compare_failed_or_set_here.t
+  [@@zero_alloc]
 
   val unsafe_compare_exchange
     : 'a.
     'a t -> int -> if_phys_equal_to:'a -> replace_with:'a -> 'a
+  [@@zero_alloc]
 
-  val unsafe_fetch_and_add : int t -> int -> int -> int
-  val unsafe_add : int t -> int -> int -> unit
-  val unsafe_sub : int t -> int -> int -> unit
-  val unsafe_land : int t -> int -> int -> unit
-  val unsafe_lor : int t -> int -> int -> unit
-  val unsafe_lxor : int t -> int -> int -> unit
+  val unsafe_fetch_and_add : int t -> int -> int -> int [@@zero_alloc]
+  val unsafe_add : int t -> int -> int -> unit [@@zero_alloc]
+  val unsafe_sub : int t -> int -> int -> unit [@@zero_alloc]
+  val unsafe_land : int t -> int -> int -> unit [@@zero_alloc]
+  val unsafe_lor : int t -> int -> int -> unit [@@zero_alloc]
+  val unsafe_lxor : int t -> int -> int -> unit [@@zero_alloc]
 end = struct
   type 'a t = { inner : 'a Atomic.t Array.t }
   [@@unboxed] [@@unsafe_allow_any_mode_crossing]
@@ -77,6 +79,21 @@ end
 
 include Impl
 
+let unsafe_get_and_update t index ~pure_f =
+  let[@inline] rec aux backoff =
+    let old = unsafe_get t index in
+    let new_ = pure_f old in
+    match unsafe_compare_and_set t index ~if_phys_equal_to:old ~replace_with:new_ with
+    | Set_here -> old
+    | Compare_failed -> aux (Basement.Backoff.once backoff)
+  in
+  aux Basement.Backoff.default [@nontail]
+;;
+
+let unsafe_update (type a) (t : a t) index ~pure_f =
+  Basement.Stdlib_shim.ignore_contended (unsafe_get_and_update t index ~pure_f)
+;;
+
 let[@inline] check_index t index function_name =
   if index < 0 || index >= length t
   then invalid_arg ("Atomic_array." ^ function_name ^ ": index out of bounds")
@@ -105,6 +122,16 @@ let compare_and_set t index ~if_phys_equal_to ~replace_with =
 let compare_exchange t index ~if_phys_equal_to ~replace_with =
   check_index t index "compare_exchange";
   unsafe_compare_exchange t index ~if_phys_equal_to ~replace_with
+;;
+
+let get_and_update t index ~pure_f =
+  check_index t index "get_and_update";
+  unsafe_get_and_update t index ~pure_f
+;;
+
+let update t index ~pure_f =
+  check_index t index "update";
+  unsafe_update t index ~pure_f
 ;;
 
 let fetch_and_add t index n =

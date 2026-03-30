@@ -30,32 +30,6 @@ module%test [@name "[Capsule.Isolated]"] _ = struct
   ;;
 end
 
-module%test [@name "[Capsule.Initial]"] _ = struct
-  let%expect_test "[if_on_initial] allocation" =
-    let capsule = Capsule.Initial.Data.wrap "foo" in
-    require_no_allocation (fun () ->
-      (Capsule.Initial.Data.if_on_initial [@alloc stack])
-        capsule
-        ~f:(ignore : string -> unit));
-    require_no_allocation (fun () ->
-      (Capsule.Initial.Data.if_on_initial [@alloc heap])
-        capsule
-        ~f:(ignore : string -> unit))
-  ;;
-
-  let%expect_test "[iter_exn] allocation in the happy case" =
-    let capsule = Capsule.Initial.Data.wrap [| "foo" |] in
-    require_no_allocation (fun () ->
-      (Capsule.Initial.Data.iter_exn [@alloc stack])
-        capsule
-        ~f:(ignore : string array -> unit));
-    require_no_allocation (fun () ->
-      (Capsule.Initial.Data.iter_exn [@alloc heap])
-        capsule
-        ~f:(ignore : string array -> unit))
-  ;;
-end
-
 module%test [@name "[Capsule.Shared]"] _ = struct
   let fork_join : (unit -> 'a) -> (unit -> 'b) -> 'a * 'b =
     fun f g ->
@@ -67,14 +41,14 @@ module%test [@name "[Capsule.Shared]"] _ = struct
   let%expect_test "crossing" =
     let array = [| "foo"; "bar" |] in
     let result =
-      Capsule.Shared.with_ array ~f:(fun shared ->
+      Capsule.Guard.Shared.with_ array ~f:(fun shared ->
         let a, b =
           fork_join
             (fun () ->
-              Capsule.Shared.get shared ~f:(fun array ->
+              Capsule.Guard.Shared.get shared ~f:(fun array ->
                 (Array.get [@mode shared]) array 0))
             (fun () ->
-              Capsule.Shared.get shared ~f:(fun array ->
+              Capsule.Guard.Shared.get shared ~f:(fun array ->
                 (Array.get [@mode shared]) array 1))
         in
         a ^ b)
@@ -86,17 +60,17 @@ module%test [@name "[Capsule.Shared]"] _ = struct
   let%expect_test "uncontended" =
     let array = [| "foo"; "bar" |] in
     let result =
-      Capsule.Shared.Uncontended.with_
+      Capsule.Guard.Shared.Uncontended.with_
         array
         { f =
             (fun shared ->
               let a, b =
                 fork_join
                   (fun () ->
-                    Capsule.Shared.Uncontended.get shared ~f:(fun array ->
+                    Capsule.Guard.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 0)))
                   (fun () ->
-                    Capsule.Shared.Uncontended.get shared ~f:(fun array ->
+                    Capsule.Guard.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 1)))
               in
               Capsule.Expert.Data.Shared.both a b)
@@ -110,8 +84,8 @@ module%test [@name "[Capsule.Shared]"] _ = struct
     let x = [| "foo"; "bar" |] in
     ignore
       (require_no_allocation (fun () ->
-         Capsule.Shared.with_ x ~f:(fun g ->
-           Capsule.Shared.get g ~f:(fun s -> (Array.get [@mode shared]) s 0)))
+         Capsule.Guard.Shared.with_ x ~f:(fun g ->
+           Capsule.Guard.Shared.get g ~f:(fun s -> (Array.get [@mode shared]) s 0)))
        : string)
   ;;
 
@@ -119,11 +93,11 @@ module%test [@name "[Capsule.Shared]"] _ = struct
     let x = [| "foo"; "bar" |] in
     ignore
       (require_no_allocation (fun () ->
-         Capsule.Shared.Uncontended.with_
+         Capsule.Guard.Shared.Uncontended.with_
            x
            { f =
                (fun g ->
-                 Capsule.Shared.Uncontended.get g ~f:(fun (s : string array) ->
+                 Capsule.Guard.Shared.Uncontended.get g ~f:(fun (s : string array) ->
                    (Array.get [@mode shared]) s 0))
            })
        : string)

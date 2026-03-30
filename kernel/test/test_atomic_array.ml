@@ -183,6 +183,24 @@ let%expect_test "[init]" =
   [%expect {| (0 10 20 30) |}]
 ;;
 
+let%expect_test "update" =
+  let arr = init 4 ~f:(fun i -> i * 10) in
+  print_s [%sexp "before", (arr : int Atomic_array.t)];
+  [%expect {| (before (0 10 20 30)) |}];
+  update arr 2 ~pure_f:(fun x -> x + 1);
+  print_s [%sexp "after", (arr : int Atomic_array.t)];
+  [%expect {| (after (0 10 21 30)) |}]
+;;
+
+let%expect_test "get_and_update" =
+  let arr = init 4 ~f:(fun i -> Int.to_string i) in
+  print_s [%sexp "before", (arr : string Atomic_array.t)];
+  [%expect {| (before (0 1 2 3)) |}];
+  let result = get_and_update arr 2 ~pure_f:(fun x -> "updated: " ^ x) in
+  print_s [%sexp { result : string; after = (arr : string Atomic_array.t) }];
+  [%expect {| ((result 2) (after (0 1 "updated: 2" 3))) |}]
+;;
+
 let%expect_test "get/set roundtrip" =
   let%quick_test prop (arr : int t) (values : int list) =
     let len = length arr in
