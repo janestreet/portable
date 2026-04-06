@@ -4,4 +4,4 @@
  (libraries base basement capsule)
  (preprocess
   (pps ppx_shorthand ppx_compare base_quickcheck.ppx_quickcheck ppx_sexp_conv
-    ppx_template)))
+    ppx_template -compare-require-explicit-locality)))

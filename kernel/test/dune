@@ -1,6 +1,5 @@
 (library
  (name portable_kernel_test)
- (libraries base core expect_test_helpers_core portable_kernel
-   portable_test_helpers)
+ (libraries base core expect_test_helpers_core portable_kernel)
  (preprocess
   (pps ppx_jane ppx_quick_test)))

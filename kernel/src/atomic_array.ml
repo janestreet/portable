@@ -16,21 +16,24 @@ module Impl : sig
     : ('a : value_or_null).
     int -> f:(int -> 'a @ contended portable) @ local -> 'a t
 
-  val length : ('a : value_or_null). 'a t @ local -> int
+  val length : ('a : value_or_null). 'a t @ local -> int [@@zero_alloc]
 
   val of_list
     : ('a : value_or_null).
     'a list @ contended portable -> 'a t @ contended portable
 
   val unsafe_get : ('a : value_or_null). 'a t @ local -> int -> 'a @ contended portable
+  [@@zero_alloc]
 
   val unsafe_set
     : ('a : value_or_null).
     'a t @ local -> int -> 'a @ contended portable -> unit
+  [@@zero_alloc]
 
   val unsafe_exchange
     : ('a : value_or_null).
     'a t @ local -> int -> 'a @ contended portable -> 'a @ contended portable
+  [@@zero_alloc]
 
   val unsafe_compare_and_set
     : ('a : value_or_null).
@@ -39,6 +42,7 @@ module Impl : sig
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
     -> Compare_failed_or_set_here.t
+  [@@zero_alloc]
 
   val unsafe_compare_exchange
     : ('a : value_or_null).
@@ -47,13 +51,14 @@ module Impl : sig
     -> if_phys_equal_to:'a @ contended
     -> replace_with:'a @ contended portable
     -> 'a @ contended portable
+  [@@zero_alloc]
 
-  val unsafe_fetch_and_add : int t @ local -> int -> int -> int
-  val unsafe_add : int t @ local -> int -> int -> unit
-  val unsafe_sub : int t @ local -> int -> int -> unit
-  val unsafe_land : int t @ local -> int -> int -> unit
-  val unsafe_lor : int t @ local -> int -> int -> unit
-  val unsafe_lxor : int t @ local -> int -> int -> unit
+  val unsafe_fetch_and_add : int t @ local -> int -> int -> int [@@zero_alloc]
+  val unsafe_add : int t @ local -> int -> int -> unit [@@zero_alloc]
+  val unsafe_sub : int t @ local -> int -> int -> unit [@@zero_alloc]
+  val unsafe_land : int t @ local -> int -> int -> unit [@@zero_alloc]
+  val unsafe_lor : int t @ local -> int -> int -> unit [@@zero_alloc]
+  val unsafe_lxor : int t @ local -> int -> int -> unit [@@zero_alloc]
 end = struct
   type ('a : value_or_null) t : value mod contended portable =
     { arr : 'a portended Uniform_array.t }
@@ -156,9 +161,45 @@ end = struct
     -> unit
     @@ portable
     = "%atomic_lxor_field"
+
+  let unsafe_get t i = unsafe_get t i [@@inline always]
+  let unsafe_set t i v = unsafe_set t i v [@@inline always]
+  let unsafe_exchange t i v = unsafe_exchange t i v [@@inline always]
+
+  let unsafe_compare_and_set t i ~if_phys_equal_to ~replace_with =
+    unsafe_compare_and_set t i ~if_phys_equal_to ~replace_with
+  [@@inline always]
+  ;;
+
+  let unsafe_compare_exchange t i ~if_phys_equal_to ~replace_with =
+    unsafe_compare_exchange t i ~if_phys_equal_to ~replace_with
+  [@@inline always]
+  ;;
+
+  let unsafe_fetch_and_add t i v = unsafe_fetch_and_add t i v [@@inline always]
+  let unsafe_add t i v = unsafe_add t i v [@@inline always]
+  let unsafe_sub t i v = unsafe_sub t i v [@@inline always]
+  let unsafe_land t i v = unsafe_land t i v [@@inline always]
+  let unsafe_lor t i v = unsafe_lor t i v [@@inline always]
+  let unsafe_lxor t i v = unsafe_lxor t i v [@@inline always]
 end
 
 include Impl
+
+let unsafe_get_and_update t index ~pure_f =
+  let[@inline] rec aux backoff =
+    let old = unsafe_get t index in
+    let new_ = pure_f old in
+    match unsafe_compare_and_set t index ~if_phys_equal_to:old ~replace_with:new_ with
+    | Set_here -> old
+    | Compare_failed -> aux (Basement.Backoff.once backoff)
+  in
+  aux Basement.Backoff.default [@nontail]
+;;
+
+let unsafe_update (type a : value_or_null) (t : a t) index ~pure_f =
+  Basement.Stdlib_shim.ignore_contended (unsafe_get_and_update t index ~pure_f)
+;;
 
 let[@inline] check_index t index function_name =
   if index < 0 || index >= length t
@@ -188,6 +229,16 @@ let compare_and_set t index ~if_phys_equal_to ~replace_with =
 let compare_exchange t index ~if_phys_equal_to ~replace_with =
   check_index t index "compare_exchange";
   unsafe_compare_exchange t index ~if_phys_equal_to ~replace_with
+;;
+
+let get_and_update t index ~pure_f =
+  check_index t index "get_and_update";
+  unsafe_get_and_update t index ~pure_f
+;;
+
+let update t index ~pure_f =
+  check_index t index "update";
+  unsafe_update t index ~pure_f
 ;;
 
 let fetch_and_add t index n =

@@ -61,6 +61,7 @@ type (!'a : value_or_null) t : value mod contended portable =
 val make
   : ('a : value_or_null).
   ?padded:bool (** default:[false] *) @ local -> 'a @ contended portable -> 'a t
+  @@ stateless
 
 (** [get r] gets the the current value of [r]. *)
 external get
@@ -145,9 +146,11 @@ external logxor : (int t[@local_opt]) -> int -> unit = "%atomic_lxor"
 
 (** [incr r] atomically increments the value of [r] by [1]. *)
 val incr : int t @ local -> unit
+[@@zero_alloc]
 
 (** [decr r] atomically decrements the value of [r] by [1]. *)
 val decr : int t @ local -> unit
+[@@zero_alloc]
 
 module Loc : sig
   type ('a : value_or_null mod contended portable) t : mutable_data with 'a =
@@ -271,10 +274,12 @@ module Loc : sig
   val incr : int t @ contended local -> unit
   [@@ocaml.doc
     {| [incr [%atomic.loc r.f]] atomically increments the value of [r.f] by [1]. |}]
+  [@@zero_alloc]
 
   val decr : int t @ contended local -> unit
   [@@ocaml.doc
     {| [decr [%atomic.loc r.f]] atomically decrements the value of [r.f] by [1]. |}]
+  [@@zero_alloc]
 end
 [@@ocaml.doc {| Atomic "locations" |}]
 
@@ -292,4 +297,5 @@ module Expert : sig
       model - and may do the wrong thing entirely on backends with weak memory models such
       as ARM. Use with caution! *)
   val fenceless_get : ('a : value_or_null). 'a t @ local -> 'a @ contended portable
+  [@@zero_alloc]
 end

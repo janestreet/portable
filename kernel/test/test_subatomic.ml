@@ -237,12 +237,12 @@ module%test Subatomic : module type of Subatomic = struct
   type nonrec ('a : value_or_null) t = 'a t
 
   module Int_t = struct
-    type nonrec t = int t [@@deriving equal, sexp]
+    type nonrec t = int t [@@deriving equal ~localize, sexp]
   end
 
   let sexp_of_t = sexp_of_t
   let t_of_sexp = t_of_sexp
-  let equal = equal
+  let%template[@mode m = (local, global)] equal = (equal [@mode m])
 
   let%expect_test "sexp serialization" =
     print_and_check_sexpable (module Int_t) [ make 1; make 2; make 3 ];

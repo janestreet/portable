@@ -20,25 +20,11 @@
       let padded_variant = Padding.copy_as_padded (Some 1)
     ]}
 
-    Padding changes the length of an array. If you need to pad an array, use
-    {!make_padded_array}. *)
+    Note that padding potentially changes the length of an array, which means that you
+    likely want to control the allocation of arrays more explicitly to ensure that your
+    index and length calculations are correct. *)
 val copy_as_padded : 'a -> 'a
 
 (** [copy_as x] by default simply returns [x]. When [~padded:true] is explicitly
     specified, returns {{!copy_as_padded} [copy_as_padded x]}. *)
 val copy_as : ?padded:bool @ local -> 'a -> 'a
-
-(** Creates a padded array. The length of the returned array includes padding. Use
-    {!length_of_padded_array} to get the unpadded length. *)
-val make_padded_array : int -> 'a -> 'a array
-
-(** Returns the length of an array created by {!make_padded_array} without the padding.
-
-    {b WARNING}: This is not guaranteed to work with {!copy_as_padded}. *)
-val length_of_padded_array : 'a array -> int
-
-(** Returns the length of an array created by {!make_padded_array} without the padding
-    minus 1.
-
-    {b WARNING}: This is not guaranteed to work with {!copy_as_padded}. *)
-val length_of_padded_array_minus_1 : 'a array -> int

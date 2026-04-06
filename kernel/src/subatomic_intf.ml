@@ -189,7 +189,7 @@ module type Subatomic = sig @@ portable
   type (!'a : value_or_null) t : mutable_data with 'a = 'a Basement.Subatomic.t
 
   [%%rederive:
-    type nonrec (!'a : value mod contended) t = 'a t [@@deriving equal, sexp_of]]
+    type nonrec (!'a : value mod contended) t = 'a t [@@deriving equal ~localize, sexp_of]]
 
   [%%rederive: type nonrec (!'a : value mod portable) t = 'a t [@@deriving of_sexp]]
 
