@@ -5,7 +5,7 @@ open Expect_test_helpers_base
 module Barrier = Portable_test_helpers.Barrier
 
 let%expect_test "simple barrier protects a ref write" =
-  let%with.tilde.stack conc = Concurrent_in_thread.with_blocking Terminator.never in
+  let%with.tilde.stack conc = Concurrent_in_thread.with_blocking Terminator.unkillable in
   let%with.tilde.stack s = Concurrent.with_scope conc () in
   let i = Atomic.make 0 in
   let result1 = Atomic.make (-1) in

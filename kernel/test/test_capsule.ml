@@ -4,7 +4,7 @@ open Expect_test_helpers_core
 
 (* Some examples of using the API for [Capsule] exposed in [Portable]. *)
 
-module%test [@name "[Capsule.Isolated]"] _ = struct
+module%test [@name "[Capsule.Owned] and [Capsule.Frozen]"] _ = struct
   module Some_library = struct
     let do_stuff (r : int ref) : string =
       r := 1;
@@ -13,13 +13,17 @@ module%test [@name "[Capsule.Isolated]"] _ = struct
   end
 
   let%expect_test _ =
-    let data = Capsule.Isolated.create (fun () -> ref 0) in
-    let data, { aliased = do_stuff_result } =
-      Capsule.Isolated.with_unique data ~f:(fun r -> Some_library.do_stuff r)
+    let data = Capsule.Owned.create (fun () -> { aliased = ref 0 }) in
+    let data, do_stuff_result =
+      Capsule.Owned.with_ data ~f:(fun r -> Some_library.do_stuff r.aliased)
     in
     (* Even though [get] is [portable], it can still read the contents of [data] since it
        has [shared] access to it. *)
-    let get () = Capsule.Isolated.with_shared data ~f:(fun r -> r.contents) in
+    let data = Capsule.Owned.freeze data in
+    let get () =
+      let r = Capsule.Frozen.unwrap data in
+      r.aliased.contents
+    in
     print_s [%message (get () : int)];
     print_s [%message (do_stuff_result : string)];
     [%expect
@@ -41,14 +45,14 @@ module%test [@name "[Capsule.Shared]"] _ = struct
   let%expect_test "crossing" =
     let array = [| "foo"; "bar" |] in
     let result =
-      Capsule.Guard.Shared.with_ array ~f:(fun shared ->
+      Capsule.Scoped.Shared.with_ array ~f:(fun shared ->
         let a, b =
           fork_join
             (fun () ->
-              Capsule.Guard.Shared.get shared ~f:(fun array ->
+              Capsule.Scoped.Shared.get shared ~f:(fun array ->
                 (Array.get [@mode shared]) array 0))
             (fun () ->
-              Capsule.Guard.Shared.get shared ~f:(fun array ->
+              Capsule.Scoped.Shared.get shared ~f:(fun array ->
                 (Array.get [@mode shared]) array 1))
         in
         a ^ b)
@@ -60,17 +64,17 @@ module%test [@name "[Capsule.Shared]"] _ = struct
   let%expect_test "uncontended" =
     let array = [| "foo"; "bar" |] in
     let result =
-      Capsule.Guard.Shared.Uncontended.with_
+      Capsule.Scoped.Shared.Uncontended.with_
         array
         { f =
             (fun shared ->
               let a, b =
                 fork_join
                   (fun () ->
-                    Capsule.Guard.Shared.Uncontended.get shared ~f:(fun array ->
+                    Capsule.Scoped.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 0)))
                   (fun () ->
-                    Capsule.Guard.Shared.Uncontended.get shared ~f:(fun array ->
+                    Capsule.Scoped.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 1)))
               in
               Capsule.Expert.Data.Shared.both a b)
@@ -84,8 +88,8 @@ module%test [@name "[Capsule.Shared]"] _ = struct
     let x = [| "foo"; "bar" |] in
     ignore
       (require_no_allocation (fun () ->
-         Capsule.Guard.Shared.with_ x ~f:(fun g ->
-           Capsule.Guard.Shared.get g ~f:(fun s -> (Array.get [@mode shared]) s 0)))
+         Capsule.Scoped.Shared.with_ x ~f:(fun g ->
+           Capsule.Scoped.Shared.get g ~f:(fun s -> (Array.get [@mode shared]) s 0)))
        : string)
   ;;
 
@@ -93,11 +97,11 @@ module%test [@name "[Capsule.Shared]"] _ = struct
     let x = [| "foo"; "bar" |] in
     ignore
       (require_no_allocation (fun () ->
-         Capsule.Guard.Shared.Uncontended.with_
+         Capsule.Scoped.Shared.Uncontended.with_
            x
            { f =
                (fun g ->
-                 Capsule.Guard.Shared.Uncontended.get g ~f:(fun (s : string array) ->
+                 Capsule.Scoped.Shared.Uncontended.get g ~f:(fun (s : string array) ->
                    (Array.get [@mode shared]) s 0))
            })
        : string)

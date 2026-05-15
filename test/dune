@@ -1,7 +1,6 @@
 (library
  (name portable_test)
  (libraries await base concurrent concurrent.in_thread
-   expect_test_helpers_core.expect_test_helpers_base portable
-   portable_test_helpers threads)
+   expect_test_helpers_base portable portable_test_helpers threads)
  (preprocess
   (pps ppx_expect ppx_sexp_message ppx_with)))

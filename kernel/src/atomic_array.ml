@@ -216,20 +216,17 @@ let%template[@mode m = (global, local)] equal (type a) equal_a (t1 : a t) (t2 : 
 ;;
 
 let quickcheck_generator (type a) quickcheck_generator_a =
-  let open Base_quickcheck.Export in
-  [%quickcheck.generator: a list]
+  Base_quickcheck.Generator.list quickcheck_generator_a
   |> Base_quickcheck.Generator.map ~f:(fun (l : a list) -> of_list l)
 ;;
 
 let quickcheck_observer (type a) quickcheck_observer_a =
-  let open Base_quickcheck.Export in
-  [%quickcheck.observer: a list]
+  Base_quickcheck.Observer.list quickcheck_observer_a
   |> Base_quickcheck.Observer.unmap ~f:(fun (t : a t) -> to_list t)
 ;;
 
 let quickcheck_shrinker (type a) quickcheck_shrinker_a =
-  let open Base_quickcheck.Export in
-  [%quickcheck.shrinker: a list]
+  Base_quickcheck.Shrinker.list quickcheck_shrinker_a
   |> Base_quickcheck.Shrinker.map
        ~f:(fun (l : a list) -> of_list l)
        ~f_inverse:(fun (t : a t) -> to_list t)
