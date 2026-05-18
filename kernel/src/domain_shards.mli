@@ -29,10 +29,49 @@ module Lazy : functor
   val create : unit -> t
   [@@ocaml.doc {| Allocate storage for [Domain.self_index ()] domains. |}]
 
-  val get : local_ t Atomic.Loc.t -> T.t
+  val get : t @ local -> T.t
   [@@ocaml.doc
     {| Retrieve the value for the current domain index, resizing storage if needed. |}]
 
-  val reset : local_ t Atomic.Loc.t -> unit
+  val reset : t @ local -> unit
   [@@ocaml.doc {| Clears and resizes storage up to the current domain index. |}]
+
+  module Unboxed : sig
+    type t : sync_data
+    [@@ocaml.doc
+      {| Like ['a t], but avoids an indirection by inlining the underlying atomic.
+
+          The intent is to use this as the type of an atomic record field, for example:
+
+          {[
+            open! Base
+            open! Portable
+
+            module Shards = Portable.Domain_shards.Lazy (struct
+                type t = int Atomic.t
+
+                let create () = Atomic.make 100
+              end)
+
+            type t =
+              { mutable shards : Shards.Unboxed.t [@atomic]
+              ; something_else : string
+              }
+
+            let use t =
+              let shard = Shards.Unboxed.get [%atomic.loc t.shards] in
+              Atomic.get shard
+            ;;
+          ]} |}]
+
+    val create : unit -> t
+    [@@ocaml.doc {| Allocate storage for [Domain.self_index ()] domains. |}]
+
+    val get : t Atomic.Loc.t @ local -> T.t
+    [@@ocaml.doc
+      {| Retrieve the value for the current domain index, resizing storage if needed. |}]
+
+    val reset : t Atomic.Loc.t @ local -> unit
+    [@@ocaml.doc {| Clears and resizes storage up to the current domain index. |}]
+  end
 end

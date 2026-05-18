@@ -15,9 +15,17 @@ type (!'a : value_or_null) t : value mod contended portable
 
 [%%rederive: type nonrec (!'a : value_or_null mod portable) t = 'a t [@@deriving of_sexp]]
 
-[%%rederive:
-  type nonrec (!'a : value_or_null mod contended portable) t = 'a t
-  [@@deriving quickcheck]]
+val quickcheck_generator
+  : ('a : value_or_null mod portable).
+  'a Base_quickcheck.Generator.t -> 'a t Base_quickcheck.Generator.t
+
+val quickcheck_observer
+  : ('a : value_or_null mod contended).
+  'a Base_quickcheck.Observer.t -> 'a t Base_quickcheck.Observer.t
+
+val quickcheck_shrinker
+  : ('a : value_or_null mod contended portable).
+  'a Base_quickcheck.Shrinker.t -> 'a t Base_quickcheck.Shrinker.t
 
 (** [create ~len value] creates a new array of [n] atomic locations having given [value]. *)
 val create : ('a : value_or_null). len:int -> 'a @ contended portable -> 'a t

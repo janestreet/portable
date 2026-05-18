@@ -233,14 +233,14 @@ module Loc : sig
 
   val update
     : ('a : value_or_null mod contended portable).
-    'a t @ contended local -> pure_f:local_ ('a -> 'a) -> unit
+    'a t @ contended local -> pure_f:('a -> 'a) @ local -> unit
   [@@ocaml.doc
     {| [update t ~pure_f] atomically updates [t] to be the result of [pure_f (get t)].
       [pure_f] may be called multiple times, so should be free of side effects. |}]
 
   val get_and_update
     : ('a : value_or_null mod contended portable).
-    'a t @ contended local -> pure_f:local_ ('a -> 'a) -> 'a
+    'a t @ contended local -> pure_f:('a -> 'a) @ local -> 'a
   [@@ocaml.doc
     {| [get_and_update t ~pure_f] atomically updates [t] to be the result of
       [pure_f (get t)]. [pure_f] may be called multiple times, so should be free of side
