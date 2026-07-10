@@ -40,8 +40,8 @@ end
   module _ = struct
     [%%expect_test
       let "[is_initial_*] allocation" =
-        ignore (require_no_allocation Capsule.Expert.is_initial_domain : bool);
-        ignore (require_no_allocation Capsule.Expert.is_initial_thread : bool)
+        ignore (require_no_allocation Capsule.Prim.is_initial_domain : bool);
+        ignore (require_no_allocation Capsule.Prim.is_initial_thread : bool)
       ;;]
   end
   [@@name "initial capsule"]]
@@ -92,7 +92,7 @@ module%test [@name "[Capsule.Shared]"] _ = struct
                     Capsule.Scoped.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 1)))
               in
-              Capsule.Expert.Data.Shared.both a b)
+              Capsule.Prim.Data.Shared.both a b)
         }
     in
     print_s [%message (result : string ref * string ref)];

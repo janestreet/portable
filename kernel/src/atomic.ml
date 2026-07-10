@@ -10,19 +10,7 @@ end
 
 type ('a : value_or_null) t = 'a Basement.Portable_atomic.t
 
-let make_alone =
-  if Basement.Stdlib_shim.runtime5 ()
-  then Basement.Portable_atomic.make_contended
-  else
-    (* [caml_atomic_make_contended] is not supported on runtime4; we can just fall back to
-       regular make, which is semantically correct and we shouldn't be as worried about
-       false sharing on single-core applications anyway. *)
-    Basement.Portable_atomic.make
-;;
-
-let[@inline] make ?(padded = false) value =
-  if padded then make_alone value else Basement.Portable_atomic.make value
-;;
+let make = Basement.Portable_atomic.make
 
 external get
   : ('a : value_or_null).
@@ -92,6 +80,42 @@ let incr r = add r 1
 let decr r = sub r 1
 let sexp_of_t sexp_of_a t = sexp_of_a (get t)
 let t_of_sexp a_of_sexp sexp = make (a_of_sexp sexp)
+
+module List = struct
+  type nonrec ('a : value_or_null) t = 'a list t
+
+  let push t x = update t ~pure_f:(fun xs -> x :: xs)
+
+  let pop t =
+    match
+      get_and_update t ~pure_f:(function
+        | [] -> []
+        | _ :: xs -> xs)
+    with
+    | [] -> Null
+    | x :: _ -> This x
+  ;;
+
+  let pop_opt t =
+    match
+      get_and_update t ~pure_f:(function
+        | [] -> []
+        | _ :: xs -> xs)
+    with
+    | [] -> None
+    | x :: _ -> Some x
+  ;;
+
+  let pop_exn t =
+    match
+      get_and_update t ~pure_f:(function
+        | [] -> []
+        | _ :: xs -> xs)
+    with
+    | [] -> failwith "[Atomic.List.pop_exn]: Empty list"
+    | x :: _ -> x
+  ;;
+end
 
 module Loc = struct
   type ('a : value_or_null mod contended portable) t = 'a Stdlib.Atomic.Loc.t

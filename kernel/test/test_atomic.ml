@@ -71,3 +71,75 @@ let%expect_test "update doesn't allocate" =
   let atomic = Atomic.make 1 in
   require_no_allocation (fun () -> Atomic.update atomic ~pure_f:(fun x -> x + 1))
 ;;
+
+module%test List = struct
+  let%expect_test "push" =
+    let t = Atomic.make [] in
+    Atomic.List.push t 1;
+    Atomic.List.push t 2;
+    Atomic.List.push t 3;
+    print_s [%sexp (Atomic.get t : int list)];
+    [%expect {| (3 2 1) |}]
+  ;;
+
+  let%expect_test "pop" =
+    let t = Atomic.make [ 1; 2; 3 ] in
+    print_s [%sexp (Atomic.List.pop t : int Or_null.t)];
+    [%expect {| (1) |}];
+    print_s [%sexp (Atomic.get t : int list)];
+    [%expect {| (2 3) |}];
+    print_s [%sexp (Atomic.List.pop t : int Or_null.t)];
+    [%expect {| (2) |}];
+    print_s [%sexp (Atomic.List.pop t : int Or_null.t)];
+    [%expect {| (3) |}];
+    print_s [%sexp (Atomic.List.pop t : int Or_null.t)];
+    [%expect {| () |}];
+    print_s [%sexp (Atomic.get t : int list)];
+    [%expect {| () |}]
+  ;;
+
+  let%expect_test "pop doesn't allocate" =
+    let t = Atomic.make [ 1; 2 ] in
+    require_no_allocation (fun () -> ignore (Atomic.List.pop t : int Or_null.t));
+    require_no_allocation (fun () -> ignore (Atomic.List.pop t : int Or_null.t));
+    require_no_allocation (fun () -> ignore (Atomic.List.pop t : int Or_null.t))
+  ;;
+
+  let%expect_test "pop_opt" =
+    let t = Atomic.make [ 1; 2 ] in
+    print_s [%sexp (Atomic.List.pop_opt t : int option)];
+    [%expect {| (1) |}];
+    print_s [%sexp (Atomic.List.pop_opt t : int option)];
+    [%expect {| (2) |}];
+    print_s [%sexp (Atomic.List.pop_opt t : int option)];
+    [%expect {| () |}]
+  ;;
+
+  let%expect_test "pop_exn" =
+    let t = Atomic.make [ 1; 2 ] in
+    print_s [%sexp (Atomic.List.pop_exn t : int)];
+    [%expect {| 1 |}];
+    print_s [%sexp (Atomic.List.pop_exn t : int)];
+    [%expect {| 2 |}];
+    require_does_raise (fun () -> Atomic.List.pop_exn t);
+    [%expect {| (Failure "[Atomic.List.pop_exn]: Empty list") |}]
+  ;;
+
+  let%expect_test "pop_exn doesn't allocate" =
+    let t = Atomic.make [ 1; 2 ] in
+    require_no_allocation (fun () -> ignore (Atomic.List.pop_exn t : int));
+    require_no_allocation (fun () -> ignore (Atomic.List.pop_exn t : int))
+  ;;
+
+  let%expect_test "push then pop" =
+    let t = Atomic.make [] in
+    Atomic.List.push t "a";
+    Atomic.List.push t "b";
+    print_s [%sexp (Atomic.List.pop_opt t : string option)];
+    [%expect {| (b) |}];
+    print_s [%sexp (Atomic.List.pop_opt t : string option)];
+    [%expect {| (a) |}];
+    print_s [%sexp (Atomic.List.pop_opt t : string option)];
+    [%expect {| () |}]
+  ;;
+end

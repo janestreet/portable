@@ -1,15 +1,14 @@
 @@ portable
 
-(** Similar to ['a DLS.key], but pre-allocates storage for
-    [Domain.recommended_domain_count ()] domains. If there are no additional domains, each
-    domain receives exclusive access to its slot. Slots from terminated domains may be
-    reused. In return, [Domain_shards.get] has lower overhead than [DLS.get]. *)
+(** Similar to ['a DLS.key], but pre-allocates storage for [Multicore.max_domains ()]
+    shards. In return, [Shards.get] has lower overhead than [DLS.get]. Slots from
+    terminated domains may be reused. *)
 type ('a : value mod non_float) t : immutable_data with 'a
 
-(** Allocate storage for [Domain.recommended_domain_count ()] domains. *)
+(** Allocate storage for [Multicore.max_domains ()] shards. *)
 val create : (unit -> 'a) @ local -> 'a t
 
-(** Retrieve the value for the current domain index. *)
+(** Retrieve the value for the current shard. *)
 val%template get : 'a t @ c -> 'a @ c
 [@@mode c = (uncontended, contended)]
 
@@ -23,18 +22,16 @@ module Lazy : functor
     -> sig
   @@ portable
   type t : sync_data
-  [@@ocaml.doc
-    {| Like ['a t], but lazily resizes storage to include the current domain index. |}]
+  [@@ocaml.doc {| Like ['a t], but lazily expands storage when required. |}]
 
-  val create : unit -> t
-  [@@ocaml.doc {| Allocate storage for [Domain.self_index ()] domains. |}]
+  val create : unit -> t [@@ocaml.doc {| Allocate storage up to the current shard. |}]
 
   val get : t @ local -> T.t
   [@@ocaml.doc
-    {| Retrieve the value for the current domain index, resizing storage if needed. |}]
+    {| Retrieve the value for the current shard, resizing storage if needed. |}]
 
   val reset : t @ local -> unit
-  [@@ocaml.doc {| Clears and resizes storage up to the current domain index. |}]
+  [@@ocaml.doc {| Clears and resizes storage up to the current shard. |}]
 
   module Unboxed : sig
     type t : sync_data
@@ -47,7 +44,7 @@ module Lazy : functor
             open! Base
             open! Portable
 
-            module Shards = Portable.Domain_shards.Lazy (struct
+            module Shards = Portable.Shards.Lazy (struct
                 type t = int Atomic.t
 
                 let create () = Atomic.make 100
@@ -69,9 +66,9 @@ module Lazy : functor
 
     val get : t Atomic.Loc.t @ local -> T.t
     [@@ocaml.doc
-      {| Retrieve the value for the current domain index, resizing storage if needed. |}]
+      {| Retrieve the value for the current shard, resizing storage if needed. |}]
 
     val reset : t Atomic.Loc.t @ local -> unit
-    [@@ocaml.doc {| Clears and resizes storage up to the current domain index. |}]
+    [@@ocaml.doc {| Clears and resizes storage up to the current shard. |}]
   end
 end
