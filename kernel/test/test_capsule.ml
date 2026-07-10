@@ -77,7 +77,7 @@ module%test [@name "[Capsule.Shared]"] _ = struct
                     Capsule.Scoped.Shared.Uncontended.get shared ~f:(fun array ->
                       ref ((Array.get [@mode shared]) array 1)))
               in
-              Capsule.Expert.Data.Shared.both a b)
+              Capsule.Prim.Data.Shared.both a b)
         }
     in
     print_s [%message (result : string ref * string ref)];

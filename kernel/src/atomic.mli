@@ -1,3 +1,5 @@
+open! Base
+
 (** An atomic (mutable) reference to a value of type ['a].
 
     Atomic references mode cross both contention and portability, meaning they are always
@@ -124,6 +126,25 @@ val incr : int t -> unit
 (** [decr r] atomically decrements the value of [r] by [1]. *)
 val decr : int t -> unit
 [@@zero_alloc]
+
+(** Operations on atomic lists *)
+module List : sig
+  type nonrec 'a t = 'a list t
+
+  (** [push t a] atomically updates the atomic list [t] to have [a] as its first element. *)
+  val push : 'a. 'a t -> 'a -> unit
+
+  (** [pop t] atomically removes and returns the first element of the atomic list [t], or
+      returns [Null] if it is empty. *)
+  val pop : 'a t -> 'a Or_null.t
+
+  (** [pop_opt t] is like [pop], but it returns an [option] instead of [or_null], making
+      it usable with lists of [value_or_null] elements. *)
+  val pop_opt : 'a. 'a t -> 'a option
+
+  (** [pop_exn t] is like [pop], but it raises an exception if the list is empty. *)
+  val pop_exn : 'a. 'a t -> 'a
+end
 
 module Expert : sig
   (** Load the value referenced by the given atomic, without using any compiler or
